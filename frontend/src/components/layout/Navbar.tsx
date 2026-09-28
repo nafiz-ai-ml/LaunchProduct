@@ -83,43 +83,10 @@ export function Navbar() {
     { name: 'Promote', href: '/promote', icon: Zap, badge: 'Boost' },
   ];
 
-  // If on auth page, render streamlined top navigation
+  // If on auth page, hide global navbar for full-screen dedicated auth layout
   const isAuthPage = pathname === '/auth' || pathname?.startsWith('/auth/');
-
   if (isAuthPage) {
-    return (
-      <header className="sticky top-0 z-40 backdrop-blur-2xl backdrop-saturate-150 bg-white/70 dark:bg-slate-950/70 supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-950/60 border-b border-white/40 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.03)] transition-all duration-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <Logo
-              variant={resolvedTheme === 'dark' ? 'dark' : 'horizontal'}
-              width={154}
-              height={32}
-            />
-          </Link>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-              className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-slate-600" />
-              )}
-            </button>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100/60 dark:hover:bg-slate-800 transition-colors"
-            >
-              Back to Directory
-            </Link>
-          </div>
-        </div>
-      </header>
-    );
+    return null;
   }
 
   return (

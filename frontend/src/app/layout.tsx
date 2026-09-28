@@ -64,11 +64,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={poppins.variable} suppressHydrationWarning>
-      <body className="min-h-screen bg-bg text-text-primary antialiased selection:bg-brand-primary selection:text-white flex flex-col font-sans">
+    <html lang="en" className={`${poppins.variable} overflow-x-hidden max-w-full`} suppressHydrationWarning>
+      <body className="min-h-screen bg-bg text-text-primary antialiased selection:bg-brand-primary selection:text-white flex flex-col font-sans overflow-x-hidden max-w-full w-full">
         <ThemeProvider>
           <Navbar />
-          <div className="flex-1">
+          <div className="flex-1 w-full max-w-full overflow-x-hidden">
             {children}
           </div>
           <Footer />

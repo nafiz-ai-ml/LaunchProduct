@@ -233,41 +233,45 @@ export default function HomePage() {
   );
 
   return (
-    <div className="bg-bg text-text-primary flex flex-col font-sans selection:bg-primary selection:text-white">
+    <div className="bg-bg text-text-primary flex flex-col font-sans selection:bg-primary selection:text-white w-full max-w-full overflow-x-hidden">
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
-        {/* Marketplace Hero Banner / Value Prop (Compact, High-Signal) */}
-        <section className="relative rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-secondary p-6 sm:p-8 text-white shadow-card overflow-hidden mb-8 border border-slate-800">
-          <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full max-w-full overflow-x-hidden">
+        {/* Marketplace Hero Banner / Value Prop (Ultra-Sleek Professional Dark Card) */}
+        <section className="relative rounded-2xl bg-[#0B0F19] p-6 sm:p-8 text-white shadow-xl overflow-hidden mb-8 border border-slate-800/80 w-full max-w-full">
+          {/* Subtle cosmic glow overlay */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,rgba(6,83,253,0.22),rgba(255,255,255,0))] pointer-events-none" />
+          {/* Fine subtle developer grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+          
           <div className="relative z-10 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/20 text-blue-300 border border-blue-500/30 mb-3">
-              <Flame className="w-3.5 h-3.5 text-blue-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/25 mb-4 backdrop-blur-sm">
+              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
               <span>Today&apos;s Featured Product Discovery</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white leading-tight">
-              Where High-Integrity <span className="text-blue-400">Products Launch</span> &amp; Grow
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white leading-tight">
+              Where High-Integrity <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-300">Products Launch</span> &amp; Grow
             </h1>
 
-            <p className="mt-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
+            <p className="mt-3 text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl font-normal">
               Discover vetted AI tools, developer utilities, and indie SaaS startups. Ranked by authentic community engagement with multi-signal anti-fraud protection.
             </p>
 
-            <div className="mt-5 flex flex-wrap items-center gap-4">
+            <div className="mt-6 flex flex-wrap items-center gap-4">
               <Link
                 href="/submit"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs sm:text-sm font-semibold shadow-sm transition-motion-base focus-ring"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-md shadow-blue-600/25 transition-all duration-200 focus-ring"
               >
                 <span>Launch Your Product</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <div className="flex items-center gap-4 text-xs text-slate-300">
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-slate-300">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   Anti-Fraud Verified
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-amber-400" />
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
                   Dual-Engine Discovery
                 </span>
               </div>
@@ -276,8 +280,8 @@ export default function HomePage() {
         </section>
 
         {/* Category Navigation Pills (Horizontal scrollable) */}
-        <section id="categories" className="mb-6">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <section id="categories" className="mb-6 w-full max-w-full overflow-hidden">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none w-full max-w-full">
             {categories.map((cat) => {
               const isSelected = selectedCategory === cat;
               return (
@@ -298,12 +302,12 @@ export default function HomePage() {
         </section>
 
         {/* Feed Controls Header */}
-        <section id="trending" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 border-b border-border pb-4">
+        <section id="trending" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 border-b border-border pb-4 w-full max-w-full">
           {/* Time Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-surface border border-border rounded-xl">
+          <div className="flex items-center gap-1.5 p-1 bg-surface border border-border rounded-xl w-full sm:w-auto overflow-x-auto scrollbar-none">
             <button
               onClick={() => setActiveTab('today')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-motion-fast focus-ring ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-motion-fast focus-ring whitespace-nowrap ${
                 activeTab === 'today'
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-sunken'
@@ -313,7 +317,7 @@ export default function HomePage() {
             </button>
             <button
               onClick={() => setActiveTab('yesterday')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-motion-fast focus-ring ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-motion-fast focus-ring whitespace-nowrap ${
                 activeTab === 'yesterday'
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-sunken'
@@ -323,7 +327,7 @@ export default function HomePage() {
             </button>
             <button
               onClick={() => setActiveTab('week')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-motion-fast focus-ring ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-motion-fast focus-ring whitespace-nowrap ${
                 activeTab === 'week'
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-sunken'

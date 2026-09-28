@@ -80,7 +80,7 @@ export function LandingSections() {
   ];
 
   return (
-    <div className="space-y-20 pt-16">
+    <div className="space-y-20 pt-16 w-full max-w-full overflow-hidden">
       {/* ======================================================== */}
       {/* 1. WHY LAUNCH ON LAUNCHPRODUCT (BENTO GRID VALUE PILLARS) */}
       {/* ======================================================== */}
@@ -216,8 +216,8 @@ export function LandingSections() {
           </p>
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-xs">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="w-full max-w-full overflow-x-auto rounded-2xl border border-border bg-surface shadow-xs">
+          <table className="w-full min-w-[580px] text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-border bg-surface-sunken/60 text-text-muted font-bold uppercase tracking-wider">
                 <th className="py-3.5 px-4 sm:px-6">Feature / Philosophy</th>
