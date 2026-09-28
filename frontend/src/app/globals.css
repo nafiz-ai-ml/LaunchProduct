@@ -1,0 +1,231 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+:root {
+  /* Brand Tokens */
+  --color-primary: #0653FD;
+  --color-primary-hover: #0543D6;
+  --color-primary-active: #0436B0;
+  --color-primary-subtle: #EFF4FF;
+  --color-primary-focus: rgba(6, 83, 253, 0.35);
+
+  --color-secondary: #00214E;
+  --color-secondary-hover: #001737;
+
+  /* Surfaces & Backgrounds (Light) */
+  --color-bg: #F8FAFC;               /* Slate-50: Main Canvas */
+  --color-surface: #FFFFFF;          /* Pure White: Cards, Panels */
+  --color-surface-elevated: #FFFFFF; /* Modals, Menus */
+  --color-surface-sunken: #F1F5F9;   /* Slate-100: Code blocks, wells */
+
+  /* Text Tokens (Light) */
+  --color-text-primary: #0F172A;     /* Slate-900: High-contrast primary */
+  --color-text-secondary: #475569;   /* Slate-600: Descriptions, subheads (> 4.8:1) */
+  --color-text-muted: #64748B;       /* Slate-500: WCAG 2.2 AA compliant (> 4.6:1 contrast on white) */
+  --color-text-inverted: #FFFFFF;    /* Text on primary buttons */
+
+  /* Borders & Dividers (Light) */
+  --color-border: #E2E8F0;           /* Slate-200: Default card borders */
+  --color-border-subtle: #F1F5F9;    /* Slate-100: Inner dividers */
+  --color-border-hover: #CBD5E1;     /* Slate-300: Card hover border */
+
+  /* Feedback & Status */
+  --color-success: #10B981;          /* Emerald-500: Valid votes, claims */
+  --color-success-bg: #ECFDF5;
+  --color-success-border: #A7F3D0;
+
+  --color-warning: #F59E0B;          /* Amber-500: Flagged review, warnings */
+  --color-warning-bg: #FFFBEB;
+  --color-warning-border: #FDE68A;
+
+  --color-error: #EF4444;            /* Red-500: Quarantined, errors, bans */
+  --color-error-bg: #FEF2F2;
+  --color-error-border: #FECACA;
+
+  --color-info: #0653FD;             /* Primary blue for info */
+  --color-info-bg: #EFF4FF;
+  --color-info-border: #BFDBFE;
+
+  /* Sponsored / Promotion Demarcation */
+  --color-sponsored-badge: #B45309;  /* Amber-700 */
+  --color-sponsored-bg: #FFFDF5;     /* Warm Amber Tint */
+  --color-sponsored-border: #FCD34D; /* Amber-300 */
+}
+
+.dark {
+  /* Brand Tokens (Dark Mode) */
+  --color-primary: #3B82F6;          /* Tuned for WCAG contrast on black */
+  --color-primary-hover: #2563EB;
+  --color-primary-active: #1D4ED8;
+  --color-primary-subtle: rgba(59, 130, 246, 0.12);
+  --color-primary-focus: rgba(59, 130, 246, 0.40);
+
+  --color-secondary: #00214E;
+  --color-secondary-hover: #032D69;
+
+  /* Surfaces & Backgrounds (Dark) */
+  --color-bg: #090D16;               /* Deep Midnight Obsidian */
+  --color-surface: #0F172A;          /* Slate-900: Primary Cards */
+  --color-surface-elevated: #1E293B; /* Slate-800: Modals, Popovers */
+  --color-surface-sunken: #060910;   /* Recessed Wells */
+
+  /* Text Tokens (Dark) */
+  --color-text-primary: #F8FAFC;     /* Slate-50 */
+  --color-text-secondary: #94A3B8;   /* Slate-400 (> 5:1 on dark) */
+  --color-text-muted: #94A3B8;       /* Slate-400 (> 5:1 on dark) */
+  --color-text-inverted: #0F172A;
+
+  /* Borders & Dividers (Dark) */
+  --color-border: #1E293B;           /* Slate-800 */
+  --color-border-subtle: #141D2E;
+  --color-border-hover: #334155;     /* Slate-700 */
+
+  /* Feedback & Status (Dark) */
+  --color-success: #10B981;
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-success-border: rgba(16, 185, 129, 0.30);
+
+  --color-warning: #F59E0B;
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-warning-border: rgba(245, 158, 11, 0.30);
+
+  --color-error: #EF4444;
+  --color-error-bg: rgba(239, 68, 68, 0.12);
+  --color-error-border: rgba(239, 68, 68, 0.30);
+
+  --color-info: #3B82F6;
+  --color-info-bg: rgba(59, 130, 246, 0.12);
+  --color-info-border: rgba(59, 130, 246, 0.30);
+
+  /* Sponsored / Promotion Demarcation (Dark) */
+  --color-sponsored-badge: #FBBF24;
+  --color-sponsored-bg: rgba(245, 158, 11, 0.06);
+  --color-sponsored-border: rgba(245, 158, 11, 0.25);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-poppins), 'Poppins', 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+/* ==========================================================================
+   Design System: Shimmer Loading Animations
+   ========================================================================== */
+@keyframes lp-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-surface-sunken);
+}
+
+.skeleton-shimmer::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.25) 20%,
+    rgba(255, 255, 255, 0.5) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: lp-shimmer 1.8s infinite;
+  content: '';
+}
+
+.dark .skeleton-shimmer::after {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 20%,
+    rgba(255, 255, 255, 0.1) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+/* ==========================================================================
+   Design System: Motion Timing Utilities
+   ========================================================================== */
+.transition-motion-fast {
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-motion-base {
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-motion-smooth {
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.transition-motion-spring {
+  transition-duration: 350ms;
+  transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* ==========================================================================
+   Design System: Accessible Focus Ring
+   ========================================================================== */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-primary);
+}
+
+/* ==========================================================================
+   Design System: Global Reduced Motion Override (WCAG 2.2 AA)
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

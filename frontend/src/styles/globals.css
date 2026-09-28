@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Brand Tokens */
+  --color-primary: #0653FD;
+  --color-primary-hover: #0543D6;
+  --color-primary-active: #0436B0;
+  --color-primary-subtle: #EFF4FF;
+  --color-primary-focus: rgba(6, 83, 253, 0.35);
+
+  --color-secondary: #00214E;
+  --color-secondary-hover: #001737;
+
+  /* Surfaces & Backgrounds (Light) */
+  --color-bg: #F8FAFC;               /* Slate-50: Main Canvas */
+  --color-surface: #FFFFFF;          /* Pure White: Cards, Panels */
+  --color-surface-elevated: #FFFFFF; /* Modals, Menus */
+  --color-surface-sunken: #F1F5F9;   /* Slate-100: Code blocks, wells */
+
+  /* Text Tokens (Light) */
+  --color-text-primary: #0F172A;     /* Slate-900: High-contrast primary */
+  --color-text-secondary: #475569;   /* Slate-600: Descriptions, subheads */
+  --color-text-muted: #94A3B8;       /* Slate-400: Placeholders, disabled */
+  --color-text-inverted: #FFFFFF;    /* Text on primary buttons */
+
+  /* Borders & Dividers (Light) */
+  --color-border: #E2E8F0;           /* Slate-200: Default card borders */
+  --color-border-subtle: #F1F5F9;    /* Slate-100: Inner dividers */
+  --color-border-hover: #CBD5E1;     /* Slate-300: Card hover border */
+
+  /* Feedback & Status */
+  --color-success: #10B981;          /* Emerald-500: Valid votes, claims */
+  --color-success-bg: #ECFDF5;
+  --color-success-border: #A7F3D0;
+
+  --color-warning: #F59E0B;          /* Amber-500: Flagged review, warnings */
+  --color-warning-bg: #FFFBEB;
+  --color-warning-border: #FDE68A;
+
+  --color-error: #EF4444;            /* Red-500: Quarantined, errors, bans */
+  --color-error-bg: #FEF2F2;
+  --color-error-border: #FECACA;
+
+  --color-info: #0653FD;             /* Primary blue for info */
+  --color-info-bg: #EFF4FF;
+  --color-info-border: #BFDBFE;
+
+  /* Sponsored / Promotion Demarcation */
+  --color-sponsored-badge: #B45309;  /* Amber-700 */
+  --color-sponsored-bg: #FFFDF5;     /* Warm Amber Tint */
+  --color-sponsored-border: #FCD34D; /* Amber-300 */
+}
+
+.dark {
+  /* Brand Tokens (Dark Mode) */
+  --color-primary: #3B82F6;          /* Tuned for WCAG contrast on black */
+  --color-primary-hover: #2563EB;
+  --color-primary-active: #1D4ED8;
+  --color-primary-subtle: rgba(59, 130, 246, 0.12);
+  --color-primary-focus: rgba(59, 130, 246, 0.40);
+
+  --color-secondary: #00214E;
+  --color-secondary-hover: #032D69;
+
+  /* Surfaces & Backgrounds (Dark) */
+  --color-bg: #090D16;               /* Deep Midnight Obsidian */
+  --color-surface: #0F172A;          /* Slate-900: Primary Cards */
+  --color-surface-elevated: #1E293B; /* Slate-800: Modals, Popovers */
+  --color-surface-sunken: #060910;   /* Recessed Wells */
+
+  /* Text Tokens (Dark) */
+  --color-text-primary: #F8FAFC;     /* Slate-50 */
+  --color-text-secondary: #94A3B8;   /* Slate-400 */
+  --color-text-muted: #64748B;       /* Slate-500 */
+  --color-text-inverted: #0F172A;
+
+  /* Borders & Dividers (Dark) */
+  --color-border: #1E293B;           /* Slate-800 */
+  --color-border-subtle: #141D2E;
+  --color-border-hover: #334155;     /* Slate-700 */
+
+  /* Feedback & Status (Dark) */
+  --color-success: #10B981;
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-success-border: rgba(16, 185, 129, 0.30);
+
+  --color-warning: #F59E0B;
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-warning-border: rgba(245, 158, 11, 0.30);
+
+  --color-error: #EF4444;
+  --color-error-bg: rgba(239, 68, 68, 0.12);
+  --color-error-border: rgba(239, 68, 68, 0.30);
+
+  --color-info: #3B82F6;
+  --color-info-bg: rgba(59, 130, 246, 0.12);
+  --color-info-border: rgba(59, 130, 246, 0.30);
+
+  /* Sponsored / Promotion Demarcation (Dark) */
+  --color-sponsored-badge: #FBBF24;
+  --color-sponsored-bg: rgba(245, 158, 11, 0.06);
+  --color-sponsored-border: rgba(245, 158, 11, 0.25);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-poppins), 'Poppins', 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}

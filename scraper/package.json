@@ -1,0 +1,28 @@
+{
+  "name": "scraper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LaunchProduct Network-Isolated Scraper Worker Container",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bullmq": "^5.34.12",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.7",
+    "ioredis": "^5.4.2",
+    "ipaddr.js": "^2.2.0",
+    "mongoose": "^8.9.5",
+    "openai": "^4.82.0",
+    "playwright": "^1.50.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

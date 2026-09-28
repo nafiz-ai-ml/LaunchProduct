@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # MongoDB Atlas Local Development Container
+  mongodb:
+    image: mongo:7.0
+    container_name: launchproduct-mongodb
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_DATABASE: launchproduct
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - internal-net
+
+  # Redis 7 Cache & BullMQ Queue Store
+  redis:
+    image: redis:7-alpine
+    container_name: launchproduct-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    networks:
+      - internal-net
+
+  # Express.js Layered Monolith API Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: launchproduct-backend
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      MONGODB_URI: mongodb://mongodb:27017/launchproduct
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-key-minimum-32-chars-ok}
+      SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET:-dev-session-secret-key-32-chars-ok}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@launchproduct.io}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      PADDLE_WEBHOOK_SECRET: ${PADDLE_WEBHOOK_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - internal-net
+      - public-net
+
+  # Next.js 14+ Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: launchproduct-frontend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    depends_on:
+      - backend
+    networks:
+      - public-net
+
+  # Network-Isolated Scraper Container (No access to internal mongodb, redis, or backend)
+  scraper:
+    build:
+      context: ./scraper
+      dockerfile: Dockerfile
+    container_name: launchproduct-scraper
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    networks:
+      - scraper-isolated-net
+
+networks:
+  # Internal network: DB, Redis, Backend (no scraper access)
+  internal-net:
+    driver: bridge
+  # Public web network: Frontend and Backend ingress
+  public-net:
+    driver: bridge
+  # Completely segregated scraper network: Outbound web access only, zero internal routes
+  scraper-isolated-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
+  redis-data:
