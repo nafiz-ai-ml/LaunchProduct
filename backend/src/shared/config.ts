@@ -27,6 +27,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
   GITHUB_CLIENT_ID: z.string().optional().default(''),
   GITHUB_CLIENT_SECRET: z.string().optional().default(''),
+  ADMIN_EMAILS: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

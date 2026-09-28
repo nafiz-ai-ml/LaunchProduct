@@ -233,9 +233,9 @@ export default function HomePage() {
   );
 
   return (
-    <div className="bg-bg text-text-primary flex flex-col font-sans selection:bg-primary selection:text-white w-full max-w-full overflow-x-hidden">
+    <div className="bg-bg text-text-primary flex flex-col font-sans selection:bg-primary selection:text-white w-full max-w-full overflow-x-clip">
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full max-w-full overflow-x-hidden">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full max-w-full">
         {/* Marketplace Hero Banner / Value Prop (Ultra-Sleek Professional Dark Card) */}
         <section className="relative rounded-2xl bg-[#0B0F19] p-6 sm:p-8 text-white shadow-xl overflow-hidden mb-8 border border-slate-800/80 w-full max-w-full">
           {/* Subtle cosmic glow overlay */}

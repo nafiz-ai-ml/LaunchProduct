@@ -525,6 +525,30 @@ export class AuthController {
       next(error);
     }
   }
+
+  /**
+   * 11. POST /api/v1/auth/claim-admin
+   * Allows authenticated user to promote their account to ADMIN
+   */
+  async claimAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = await authService.claimAdmin(req.user!.userId);
+      res.status(200).json({
+        success: true,
+        data: {
+          message: 'Successfully promoted to ADMIN role',
+          user: {
+            id: user._id.toString(),
+            email: user.email,
+            role: user.role,
+          },
+        },
+        meta: getMetadata(req),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const authController = new AuthController();

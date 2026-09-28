@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "seed": "ts-node src/shared/seed.ts",
+    "make-admin": "ts-node src/scripts/promote-admin.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts"
   },

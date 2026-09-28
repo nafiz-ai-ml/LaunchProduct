@@ -227,12 +227,16 @@ export async function fetchHomepageMetaTag(
     const html = typeof response.data === 'string' ? response.data : String(response.data);
     const $ = cheerio.load(html);
 
-    // Check primary meta name
+    // Check primary meta name and variants
     let content = $(`meta[name="${metaName}"]`).attr('content');
-
-    // Also check alternative 'launchproduct-verify' name
+    if (!content) {
+      content = $('meta[name="launchproduct-verification"]').attr('content');
+    }
     if (!content) {
       content = $('meta[name="launchproduct-verify"]').attr('content');
+    }
+    if (!content) {
+      content = $('meta[name="launchproduct-site-verification"]').attr('content');
     }
 
     if (content) {
@@ -241,7 +245,7 @@ export async function fetchHomepageMetaTag(
 
     // Heuristic regex fallback in case cheerio didn't match nested head tags
     const regex = new RegExp(
-      `<meta\\s+[^>]*name=["'](?:${metaName}|launchproduct-verify)["'][^>]*content=["']([^"']+)["']`,
+      `<meta\\s+[^>]*name=["'](?:${metaName}|launchproduct-verification|launchproduct-verify|launchproduct-site-verification)["'][^>]*content=["']([^"']+)["']`,
       'i'
     );
     const match = html.match(regex);
@@ -251,7 +255,7 @@ export async function fetchHomepageMetaTag(
 
     // Also match reversed attribute order: content="..." name="..."
     const reverseRegex = new RegExp(
-      `<meta\\s+[^>]*content=["']([^"']+)["'][^>]*name=["'](?:${metaName}|launchproduct-verify)["']`,
+      `<meta\\s+[^>]*content=["']([^"']+)["'][^>]*name=["'](?:${metaName}|launchproduct-verification|launchproduct-verify|launchproduct-site-verification)["']`,
       'i'
     );
     const reverseMatch = html.match(reverseRegex);

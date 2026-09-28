@@ -74,7 +74,7 @@ export default function SubmitProductPage() {
   const [step2Errors, setStep2Errors] = useState<Record<string, string>>({});
 
   // Step 3: Domain Claim (Optional)
-  const [verificationMethod, setVerificationMethod] = useState<'DNS_TXT' | 'HTML_META'>('DNS_TXT');
+  const [verificationMethod, setVerificationMethod] = useState<'HTML_META' | 'DNS_TXT'>('HTML_META');
   const [claimToken, setClaimToken] = useState('launchproduct-verify-' + Math.random().toString(36).substring(2, 10));
   const [isVerifyingDomain, setIsVerifyingDomain] = useState(false);
   const [isDomainVerified, setIsDomainVerified] = useState(false);
@@ -879,10 +879,25 @@ export default function SubmitProductPage() {
                     <p className="text-xs text-text-muted mt-1 leading-relaxed">
                       Prove authority over your domain to unlock the <strong>Verified Builder Shield Checkmark</strong> and protect against fraudulent claims.
                     </p>
+                    <div className="mt-2.5 p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
+                      <span><strong>100% Optional:</strong> You can skip this step and launch your tool immediately! You can verify your domain at any time later.</span>
+                    </div>
                   </div>
 
                   {/* Verification Method Tabs */}
                   <div className="flex items-center gap-2 p-1 bg-bg border border-border rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setVerificationMethod('HTML_META')}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-ring ${
+                        verificationMethod === 'HTML_META'
+                          ? 'bg-surface text-text-primary shadow-sm'
+                          : 'text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      HTML &lt;meta&gt; Tag (Fastest)
+                    </button>
                     <button
                       type="button"
                       onClick={() => setVerificationMethod('DNS_TXT')}
@@ -893,17 +908,6 @@ export default function SubmitProductPage() {
                       }`}
                     >
                       DNS TXT Record
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setVerificationMethod('HTML_META')}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all focus-ring ${
-                        verificationMethod === 'HTML_META'
-                          ? 'bg-surface text-text-primary shadow-sm'
-                          : 'text-text-muted hover:text-text-primary'
-                      }`}
-                    >
-                      HTML &lt;meta&gt; Tag
                     </button>
                   </div>
 

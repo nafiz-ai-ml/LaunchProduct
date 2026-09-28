@@ -2,9 +2,48 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { userRepository } from '../repositories/user.repository';
 import { tokenRepository } from '../repositories/token.repository';
-import { IUser } from '../models/User.model';
+import { User, IUser } from '../models/User.model';
 import { ActivityEvent } from '../models/ActivityEvent.model';
 import { EventSource, UserRole } from '../shared/constants';
+
+/**
+ * Ensures user is promoted to ADMIN if listed in ADMIN_EMAILS or if no admin exists yet
+ */
+export async function ensureAdminRole(user: IUser): Promise<IUser> {
+  try {
+    const adminEmailsRaw = process.env.ADMIN_EMAILS || config.ADMIN_EMAILS || '';
+    const adminEmails = adminEmailsRaw
+      .toLowerCase()
+      .split(',')
+      .map((e: string) => e.trim())
+      .filter(Boolean);
+
+    const isMatch = adminEmails.length > 0 && adminEmails.includes(user.email.toLowerCase());
+
+    if (isMatch) {
+      if (user.role !== UserRole.ADMIN) {
+        user.role = UserRole.ADMIN;
+        const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
+        return updated || user;
+      }
+      return user;
+    }
+
+    // Auto-promote first user to ADMIN if no admin accounts exist yet
+    if (user.role !== UserRole.ADMIN && adminEmails.length === 0) {
+      const adminCount = await User.countDocuments({ role: UserRole.ADMIN });
+      if (adminCount === 0) {
+        user.role = UserRole.ADMIN;
+        const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
+        logger.info({ email: user.email }, '👑 Automatically granted initial ADMIN role to first user');
+        return updated || user;
+      }
+    }
+  } catch (err: any) {
+    logger.warn({ err: err.message }, 'Failed during ensureAdminRole evaluation');
+  }
+  return user;
+}
 import {
   AuthenticationError,
   AuthorizationError,
@@ -234,17 +273,19 @@ export class AuthService {
       );
     }
 
-    const updatedUser = (await userRepository.updateById(user._id.toString(), {
+    let updatedUser = (await userRepository.updateById(user._id.toString(), {
       lastLoginAt: new Date(),
     })) || user;
+
+    updatedUser = await ensureAdminRole(updatedUser);
 
     // Sign JWT session token (expiresIn: 30d)
     const secret = process.env.JWT_SECRET || config.JWT_SECRET;
     const sessionToken = jwt.sign(
       {
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
+        userId: updatedUser._id.toString(),
+        email: updatedUser.email,
+        role: updatedUser.role,
       },
       secret,
       { expiresIn: '30d' }
@@ -272,7 +313,8 @@ export class AuthService {
       );
     }
 
-    return user;
+    const verifiedUser = await ensureAdminRole(user);
+    return verifiedUser;
   }
 
   /**
@@ -302,16 +344,18 @@ export class AuthService {
       );
     }
 
-    const updatedUser = (await userRepository.updateById(user._id.toString(), {
+    let updatedUser = (await userRepository.updateById(user._id.toString(), {
       lastLoginAt: new Date(),
     })) || user;
+
+    updatedUser = await ensureAdminRole(updatedUser);
 
     const secret = process.env.JWT_SECRET || config.JWT_SECRET;
     const sessionToken = jwt.sign(
       {
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
+        userId: updatedUser._id.toString(),
+        email: updatedUser.email,
+        role: updatedUser.role,
       },
       secret,
       { expiresIn: '30d' }
@@ -391,6 +435,8 @@ export class AuthService {
       });
     }
 
+    user = await ensureAdminRole(user);
+
     const secret = process.env.JWT_SECRET || config.JWT_SECRET;
     const sessionToken = jwt.sign(
       {
@@ -442,17 +488,19 @@ export class AuthService {
       );
     }
 
-    const updatedUser = (await userRepository.updateById(user._id.toString(), {
+    let updatedUser = (await userRepository.updateById(user._id.toString(), {
       lastLoginAt: new Date(),
     })) || user;
+
+    updatedUser = await ensureAdminRole(updatedUser);
 
     const secret = process.env.JWT_SECRET || config.JWT_SECRET;
     const expiresIn = rememberMe ? '30d' : '1d';
     const sessionToken = jwt.sign(
       {
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
+        userId: updatedUser._id.toString(),
+        email: updatedUser.email,
+        role: updatedUser.role,
       },
       secret,
       { expiresIn }
@@ -548,6 +596,20 @@ export class AuthService {
     });
 
     return { success: true };
+  }
+
+  /**
+   * 9. Claim or promote user to ADMIN
+   */
+  async claimAdmin(userId: string): Promise<IUser> {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User profile not found');
+    }
+    user.role = UserRole.ADMIN;
+    const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
+    logger.info({ email: user.email, userId }, '👑 User successfully promoted to ADMIN');
+    return updated || user;
   }
 }
 

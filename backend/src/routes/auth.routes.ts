@@ -109,4 +109,12 @@ router.post('/reset-password', (req, res, next) =>
   authController.resetPassword(req, res, next)
 );
 
+/**
+ * 11. POST /api/v1/auth/claim-admin
+ * Elevate current user to ADMIN
+ */
+router.post('/claim-admin', requireAuth, (req, res, next) =>
+  authController.claimAdmin(req, res, next)
+);
+
 export default router;

@@ -36,6 +36,19 @@ export function UpvoteButton({
     setHasVoted(initialHasVoted);
   }, [initialHasVoted]);
 
+  // Check local guest votes on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('lp_guest_votes');
+      if (stored) {
+        const guestVotes: string[] = JSON.parse(stored);
+        if (guestVotes.includes(productId)) {
+          setHasVoted(true);
+        }
+      }
+    } catch {}
+  }, [productId]);
+
   const handleVote = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -55,27 +68,33 @@ export function UpvoteButton({
       onVoteChange(nextCount, nextVoted);
     }
 
+    // Persist optimistic guest vote in localStorage
+    try {
+      const stored = localStorage.getItem('lp_guest_votes');
+      let guestVotes: string[] = stored ? JSON.parse(stored) : [];
+      if (nextVoted) {
+        if (!guestVotes.includes(productId)) guestVotes.push(productId);
+      } else {
+        guestVotes = guestVotes.filter((id) => id !== productId);
+      }
+      localStorage.setItem('lp_guest_votes', JSON.stringify(guestVotes));
+      localStorage.setItem('pending_upvote', productId);
+    } catch {}
+
     setIsSubmitting(true);
 
     try {
       await apiClient.post('/votes', { productId });
     } catch (err: any) {
-      // If unauthorized (401), rollback and prompt login
+      // If unauthorized (401), keep optimistic device vote and open lightweight social auth modal
       if (err?.statusCode === 401 || err?.response?.status === 401 || err?.code === 'UNAUTHORIZED') {
-        setHasVoted(hasVoted);
-        setVotesCount(votesCount);
-        if (onVoteChange) {
-          onVoteChange(votesCount, hasVoted);
-        }
         if (onAuthRequired) {
           onAuthRequired();
-        } else {
-          window.location.href = '/auth';
         }
         return;
       }
 
-      // Rollback on duplicate or rate limit error
+      // Rollback on non-auth errors (e.g. rate limit exceeded)
       setHasVoted(hasVoted);
       setVotesCount(votesCount);
       if (onVoteChange) {

@@ -9,6 +9,7 @@ import {
   loginWithPassword,
   registerWithPassword,
 } from '@/lib/auth-client';
+import { apiClient } from '@/lib/api-client';
 import {
   X,
   Mail,
@@ -107,6 +108,14 @@ export function AuthModal({
     setIsLoading(true);
     try {
       await loginWithPassword(email.trim().toLowerCase(), password, rememberMe);
+      // Sync pending upvote to server
+      try {
+        const pending = localStorage.getItem('pending_upvote');
+        if (pending) {
+          await apiClient.post('/votes', { productId: pending });
+          localStorage.removeItem('pending_upvote');
+        }
+      } catch {}
       onClose();
       router.refresh();
     } catch (err: any) {
@@ -152,6 +161,14 @@ export function AuthModal({
     setIsLoading(true);
     try {
       await registerWithPassword(name.trim(), email.trim().toLowerCase(), password, termsAccepted);
+      // Sync pending upvote to server
+      try {
+        const pending = localStorage.getItem('pending_upvote');
+        if (pending) {
+          await apiClient.post('/votes', { productId: pending });
+          localStorage.removeItem('pending_upvote');
+        }
+      } catch {}
       onClose();
       router.refresh();
     } catch (err: any) {
