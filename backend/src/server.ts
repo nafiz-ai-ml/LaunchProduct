@@ -20,6 +20,9 @@ export function createApp(): Express {
   // 1. Create an Express app instance
   const app = express();
 
+  // Trust proxy when behind reverse proxy (Render, Cloudflare, etc.)
+  app.set('trust proxy', 1);
+
   // 2. Apply global middleware in this exact order:
   // a. helmet() — Security headers
   app.use(helmet({

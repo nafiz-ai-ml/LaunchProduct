@@ -42,7 +42,7 @@ function getBackendBaseUrl(req: Request): string {
     return process.env.BACKEND_URL.replace(/\/$/, '');
   }
   const host = req.get('host') || 'localhost:4000';
-  const protocol = req.protocol || 'http';
+  const protocol = (req.headers['x-forwarded-proto'] as string)?.split(',')[0]?.trim() || req.protocol || 'http';
   return `${protocol}://${host}`;
 }
 

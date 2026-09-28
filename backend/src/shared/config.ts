@@ -11,7 +11,8 @@ dotenv.config();
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
   PORT: z.string().transform(Number).default('4000'),
-  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  FRONTEND_URL: z.string().optional().default('http://localhost:3000'),
+  BACKEND_URL: z.string().optional().default(''),
   MONGODB_URI: z.string().default('mongodb://localhost:27017/launchproduct'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   JWT_SECRET: z.string().min(16).default('dev_jwt_secret_launchproduct_minimum_64_characters_hash_key_12345'),
