@@ -93,6 +93,16 @@ export class UserRepository {
       ],
     });
   }
+
+  /**
+   * Find a user with active unexpired reset password token
+   */
+  async findByResetToken(hashedToken: string): Promise<IUser | null> {
+    return User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() },
+    }).lean<IUser>().exec();
+  }
 }
 
 export const userRepository = new UserRepository();

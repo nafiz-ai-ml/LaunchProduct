@@ -68,6 +68,69 @@ export async function getSessionUser(): Promise<User | null> {
 export const getCurrentUser = getSessionUser;
 
 /**
+ * Registers user with full name, email, password, and terms acceptance
+ */
+export async function registerWithPassword(
+  name: string,
+  email: string,
+  password: string,
+  termsAccepted: boolean
+): Promise<User> {
+  const res = await apiClient.post<ApiResponse<{ user: User; sessionToken: string }>>('/auth/register', {
+    name,
+    email,
+    password,
+    termsAccepted,
+  });
+  const user = res.data?.data?.user;
+  if (user && typeof window !== 'undefined') {
+    localStorage.setItem('lp_session_user', JSON.stringify(user));
+  }
+  return user;
+}
+
+/**
+ * Logs in with email, password, and optional rememberMe
+ */
+export async function loginWithPassword(
+  email: string,
+  password: string,
+  rememberMe: boolean = true
+): Promise<User> {
+  const res = await apiClient.post<ApiResponse<{ user: User; sessionToken: string }>>('/auth/login', {
+    email,
+    password,
+    rememberMe,
+  });
+  const user = res.data?.data?.user;
+  if (user && typeof window !== 'undefined') {
+    localStorage.setItem('lp_session_user', JSON.stringify(user));
+  }
+  return user;
+}
+
+/**
+ * Dispatches password reset link
+ */
+export async function forgotPassword(email: string): Promise<{ message: string; devResetLink?: string }> {
+  const res = await apiClient.post<ApiResponse<{ message: string; devResetLink?: string }>>('/auth/forgot-password', {
+    email,
+  });
+  return res.data?.data || { message: 'Reset email dispatched.' };
+}
+
+/**
+ * Sets new password using reset token
+ */
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  const res = await apiClient.post<ApiResponse<{ message: string }>>('/auth/reset-password', {
+    token,
+    newPassword,
+  });
+  return res.data?.data || { message: 'Password reset successfully.' };
+}
+
+/**
  * Terminates session and clears the session cookie
  */
 export async function logoutUser(): Promise<void> {
@@ -85,6 +148,10 @@ export const logout = logoutUser;
 export default {
   requestMagicLink,
   verifyMagicLink,
+  registerWithPassword,
+  loginWithPassword,
+  forgotPassword,
+  resetPassword,
   getSessionUser,
   getCurrentUser,
   logoutUser,

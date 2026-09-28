@@ -77,4 +77,36 @@ router.post('/logout', optionalAuth, (req, res, next) =>
   authController.logout(req, res, next)
 );
 
+/**
+ * 7. POST /api/v1/auth/register
+ * Register with name, email, password, and terms acceptance.
+ */
+router.post('/register', (req, res, next) =>
+  authController.register(req, res, next)
+);
+
+/**
+ * 8. POST /api/v1/auth/login
+ * Log in with email, password, and rememberMe.
+ */
+router.post('/login', (req, res, next) =>
+  authController.login(req, res, next)
+);
+
+/**
+ * 9. POST /api/v1/auth/forgot-password
+ * Request password reset link.
+ */
+router.post('/forgot-password', (req, res, next) =>
+  authController.forgotPassword(req, res, next)
+);
+
+/**
+ * 10. POST /api/v1/auth/reset-password
+ * Complete password reset with token.
+ */
+router.post('/reset-password', (req, res, next) =>
+  authController.resetPassword(req, res, next)
+);
+
 export default router;

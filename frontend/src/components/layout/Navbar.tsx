@@ -88,7 +88,7 @@ export function Navbar() {
 
   if (isAuthPage) {
     return (
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/60 dark:border-slate-800/60 transition-colors">
+      <header className="sticky top-0 z-40 backdrop-blur-2xl backdrop-saturate-150 bg-white/70 dark:bg-slate-950/70 supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-950/60 border-b border-white/40 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.03)] transition-all duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
             <Logo
@@ -125,10 +125,10 @@ export function Navbar() {
   return (
     <>
       <header
-        className={`sticky top-0 z-40 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b transition-all duration-200 ${
+        className={`sticky top-0 z-40 backdrop-blur-2xl backdrop-saturate-150 bg-white/70 dark:bg-slate-950/70 supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-950/60 border-b transition-all duration-300 ${
           isScrolled
-            ? 'border-slate-200/80 dark:border-slate-800/80 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)]'
-            : 'border-slate-200/50 dark:border-slate-800/50 shadow-none'
+            ? 'border-slate-200/80 dark:border-slate-800/80 shadow-[0_8px_32px_0_rgba(15,23,42,0.08)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.35)]'
+            : 'border-white/40 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.02)]'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3 sm:gap-4">

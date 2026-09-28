@@ -19,7 +19,11 @@ export interface IFounderProfile {
 
 export interface IUser {
   _id: Types.ObjectId;
+  name?: string;
   email: string;
+  passwordHash?: string;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   role: 'VISITOR' | 'HUNTER' | 'FOUNDER' | 'MODERATOR' | 'ADMIN';
   oauthProviders: IOAuthProvider[];
   founderProfile?: IFounderProfile;
@@ -94,12 +98,29 @@ const FounderProfileSchema = new Schema<IFounderProfile>(
 
 const UserSchema = new Schema<IUser>(
   {
+    name: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     email: {
       type: String,
       required: [true, 'Email is required'],
       lowercase: true,
       trim: true,
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid RFC 5322 email address'],
+    },
+    passwordHash: {
+      type: String,
+      default: null,
+    },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
     },
     role: {
       type: String,
@@ -135,6 +156,9 @@ const UserSchema = new Schema<IUser>(
     toJSON: {
       transform(_doc, ret: Record<string, unknown>) {
         delete ret.__v;
+        delete ret.passwordHash;
+        delete ret.resetPasswordToken;
+        delete ret.resetPasswordExpires;
         return ret;
       },
     },

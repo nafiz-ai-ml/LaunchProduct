@@ -9,11 +9,11 @@ import { ValidationError, AuthenticationError } from '../shared/errors';
 
 const COOKIE_NAME = 'sessionToken';
 
-const getCookieOptions = () => ({
+const getCookieOptions = (days: number = 30) => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
-  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (2,592,000 seconds)
+  maxAge: days * 24 * 60 * 60 * 1000, // days in ms
   path: '/',
   signed: true,
   ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
@@ -369,6 +369,155 @@ export class AuthController {
         success: true,
         data: {
           message: 'Successfully logged out',
+        },
+        meta: getMetadata(req),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 7. POST /api/v1/auth/register
+   * Creates an account with Name, Email, and Password
+   */
+  async register(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { name, email, password, termsAccepted } = req.body;
+      const { user, sessionToken } = await authService.registerWithPassword(
+        name,
+        email,
+        password,
+        Boolean(termsAccepted)
+      );
+
+      // Set 30-day session cookie
+      res.cookie(COOKIE_NAME, sessionToken, getCookieOptions(30));
+
+      // Log AUTH_REGISTER activity event
+      try {
+        await ActivityEvent.create({
+          userId: user._id,
+          eventType: 'USER_REGISTERED',
+          eventSource: EventSource.INTERNAL,
+          metadata: {
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+            authType: 'PASSWORD',
+          },
+        });
+      } catch (logErr) {
+        logger.warn({ err: logErr }, 'Failed to record USER_REGISTERED event');
+      }
+
+      res.status(201).json({
+        success: true,
+        data: {
+          user: {
+            id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            founderProfile: user.founderProfile,
+            createdAt: user.createdAt,
+          },
+          sessionToken,
+        },
+        meta: getMetadata(req),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 8. POST /api/v1/auth/login
+   * Authenticates with Email and Password
+   */
+  async login(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email, password, rememberMe } = req.body;
+      const isRemembered = rememberMe !== false; // default true
+      const { user, sessionToken } = await authService.loginWithPassword(
+        email,
+        password,
+        isRemembered
+      );
+
+      const cookieDays = isRemembered ? 30 : 1;
+      res.cookie(COOKIE_NAME, sessionToken, getCookieOptions(cookieDays));
+
+      // Log AUTH_LOGIN activity event
+      try {
+        await ActivityEvent.create({
+          userId: user._id,
+          eventType: 'AUTH_LOGIN',
+          eventSource: EventSource.INTERNAL,
+          metadata: {
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+            authType: 'PASSWORD',
+          },
+        });
+      } catch (logErr) {
+        logger.warn({ err: logErr }, 'Failed to record AUTH_LOGIN event');
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          user: {
+            id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            founderProfile: user.founderProfile,
+            createdAt: user.createdAt,
+          },
+          sessionToken,
+        },
+        meta: getMetadata(req),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 9. POST /api/v1/auth/forgot-password
+   * Generates password reset token
+   */
+  async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email } = req.body;
+      const result = await authService.requestPasswordReset(email);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          message: 'If an account exists with this email, a password reset link has been dispatched.',
+          devResetLink: result.devResetLink,
+        },
+        meta: getMetadata(req),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 10. POST /api/v1/auth/reset-password
+   * Sets new password using reset token
+   */
+  async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token, newPassword } = req.body;
+      await authService.resetPassword(token, newPassword);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          message: 'Your password has been successfully reset. You can now sign in with your new password.',
         },
         meta: getMetadata(req),
       });

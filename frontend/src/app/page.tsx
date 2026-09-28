@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ProductCard } from '@/components/product/ProductCard';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { CustomSelect } from '@/components/ui/CustomSelect';
+import { LandingSections } from '@/components/home/LandingSections';
 import { apiClient } from '@/lib/api-client';
 import { Product, Category } from '@/types';
 import {
@@ -418,28 +419,8 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* Founder Launch Organic Submission Banner (UI-UX Section 9 Tier 7) */}
-        <section className="mt-12 rounded-2xl bg-surface border border-border p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden">
-          <div className="space-y-2 max-w-xl">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-subtle text-primary border border-primary/20">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>100% Free Organic Discovery</span>
-            </div>
-            <h3 className="text-lg sm:text-xl font-bold text-text-primary">
-              Launching an AI tool, agent, or indie SaaS?
-            </h3>
-            <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
-              Submit your product in under 3 minutes. Gain distribution, real founder reviews, and multi-signal fraud-resilient community rankings without paywalls.
-            </p>
-          </div>
-          <Link
-            href="/submit"
-            className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-motion-base shadow-sm focus-ring"
-          >
-            <span>Submit Your Launch</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </section>
+        {/* Rich SaaS Landing Page Value Sections (Bento Pillars, Workflow, Anti-Fraud Matrix, Testimonials, FAQ, CTA Banner) */}
+        <LandingSections />
       </main>
 
       {/* Reusable Auth Modal for Non-Logged-In Upvotes */}

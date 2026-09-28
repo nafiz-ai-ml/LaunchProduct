@@ -63,6 +63,25 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
 export interface AuthSessionResult {
   user: IUser;
   sessionToken: string;
+  rememberMe?: boolean;
+}
+
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password: string, combinedHash: string): boolean {
+  try {
+    const [salt, key] = combinedHash.split(':');
+    if (!salt || !key) return false;
+    const keyBuffer = Buffer.from(key, 'hex');
+    const derivedKey = crypto.scryptSync(password, salt, 64);
+    return crypto.timingSafeEqual(keyBuffer, derivedKey);
+  } catch {
+    return false;
+  }
 }
 
 export class AuthService {
@@ -302,6 +321,233 @@ export class AuthService {
       user: updatedUser,
       sessionToken,
     };
+  }
+
+  /**
+   * 5. Register user with full name, email and password
+   */
+  async registerWithPassword(
+    name: string,
+    email: string,
+    password: string,
+    termsAccepted: boolean = false
+  ): Promise<AuthSessionResult> {
+    if (!termsAccepted) {
+      throw new ValidationError('You must agree to the Terms of Service and Privacy Policy to create an account', [
+        { field: 'termsAccepted', code: 'TERMS_REQUIRED', message: 'Terms and Privacy Policy must be accepted' },
+      ]);
+    }
+
+    if (!name || name.trim().length < 2) {
+      throw new ValidationError('Full name must be at least 2 characters', [
+        { field: 'name', code: 'INVALID_LENGTH', message: 'Name must be at least 2 characters long' },
+      ]);
+    }
+
+    if (!email || !email.includes('@')) {
+      throw new ValidationError('Valid email is required', [
+        { field: 'email', code: 'INVALID_FORMAT', message: 'Must be a valid RFC 5322 email address' },
+      ]);
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const domain = normalizedEmail.split('@')[1];
+    if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
+      throw new ValidationError('Temporary or disposable emails are not permitted', [
+        { field: 'email', code: 'DISPOSABLE_EMAIL_REJECTED', message: 'Disposable email addresses are not permitted' },
+      ]);
+    }
+
+    if (!password || password.length < 8) {
+      throw new ValidationError('Password must be at least 8 characters', [
+        { field: 'password', code: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters long' },
+      ]);
+    }
+
+    const existingUser = await userRepository.findByEmail(normalizedEmail);
+    if (existingUser && existingUser.passwordHash) {
+      throw new ValidationError('An account with this email already exists. Please sign in instead.', [
+        { field: 'email', code: 'EMAIL_ALREADY_EXISTS', message: 'Account already exists' },
+      ]);
+    }
+
+    const passwordHash = hashPassword(password);
+
+    let user: IUser;
+    if (existingUser) {
+      // User existed without password (e.g., from magic link or OAuth)
+      user = (await userRepository.updateById(existingUser._id.toString(), {
+        name: name.trim(),
+        passwordHash,
+        lastLoginAt: new Date(),
+      })) || existingUser;
+    } else {
+      user = await userRepository.create({
+        name: name.trim(),
+        email: normalizedEmail,
+        passwordHash,
+        role: UserRole.HUNTER,
+        lastLoginAt: new Date(),
+      });
+    }
+
+    const secret = process.env.JWT_SECRET || config.JWT_SECRET;
+    const sessionToken = jwt.sign(
+      {
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role,
+      },
+      secret,
+      { expiresIn: '30d' }
+    );
+
+    return {
+      user,
+      sessionToken,
+      rememberMe: true,
+    };
+  }
+
+  /**
+   * 6. Authenticate user with email and password
+   */
+  async loginWithPassword(
+    email: string,
+    password: string,
+    rememberMe: boolean = true
+  ): Promise<AuthSessionResult> {
+    if (!email || !password) {
+      throw new ValidationError('Email and password are required', [
+        { field: 'credentials', code: 'REQUIRED', message: 'Both email and password must be provided' },
+      ]);
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await userRepository.findByEmail(normalizedEmail);
+
+    if (!user || !user.passwordHash) {
+      throw new AuthenticationError('Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    const isValid = verifyPassword(password, user.passwordHash);
+    if (!isValid) {
+      throw new AuthenticationError('Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    if (user.isBanned) {
+      throw new AuthorizationError(
+        user.banReason ? `Account is banned: ${user.banReason}` : 'Account is banned',
+        'ACCOUNT_BANNED'
+      );
+    }
+
+    const updatedUser = (await userRepository.updateById(user._id.toString(), {
+      lastLoginAt: new Date(),
+    })) || user;
+
+    const secret = process.env.JWT_SECRET || config.JWT_SECRET;
+    const expiresIn = rememberMe ? '30d' : '1d';
+    const sessionToken = jwt.sign(
+      {
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role,
+      },
+      secret,
+      { expiresIn }
+    );
+
+    return {
+      user: updatedUser,
+      sessionToken,
+      rememberMe,
+    };
+  }
+
+  /**
+   * 7. Request password reset email
+   */
+  async requestPasswordReset(
+    email: string
+  ): Promise<{ success: boolean; devResetToken?: string; devResetLink?: string }> {
+    if (!email || !email.includes('@')) {
+      throw new ValidationError('Valid email address is required', [
+        { field: 'email', code: 'INVALID_FORMAT', message: 'Must be a valid email address' },
+      ]);
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await userRepository.findByEmail(normalizedEmail);
+
+    // If user does not exist, return success silently to prevent account enumeration
+    if (!user) {
+      return { success: true };
+    }
+
+    // Generate cryptographic reset token
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+
+    await userRepository.updateById(user._id.toString(), {
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires,
+    });
+
+    const frontendUrl = (process.env.FRONTEND_URL || config.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const resetLink = `${frontendUrl}/auth/reset-password?token=${rawToken}`;
+
+    // Queue email job if redis is active
+    if (isRedisConnected()) {
+      await emailQueue.add('send-password-reset-email', {
+        to: user.email,
+        subject: 'Reset your LaunchProduct password',
+        resetLink,
+      }).catch((err) => {
+        logger.warn({ err: err.message }, 'Failed to queue password reset email');
+      });
+    }
+
+    logger.info(`[DEV AUTH] Password Reset Link: ${resetLink}`);
+
+    return {
+      success: true,
+      devResetToken: rawToken,
+      devResetLink: resetLink,
+    };
+  }
+
+  /**
+   * 8. Complete password reset with token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean }> {
+    if (!token || typeof token !== 'string') {
+      throw new ValidationError('Reset token is required');
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new ValidationError('New password must be at least 8 characters long', [
+        { field: 'newPassword', code: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters' },
+      ]);
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token.trim()).digest('hex');
+    const user = await userRepository.findByResetToken(hashedToken);
+
+    if (!user) {
+      throw new ValidationError('Password reset link is invalid or has expired');
+    }
+
+    const passwordHash = hashPassword(newPassword);
+
+    await userRepository.updateById(user._id.toString(), {
+      passwordHash,
+      resetPasswordToken: undefined,
+      resetPasswordExpires: undefined,
+    });
+
+    return { success: true };
   }
 }
 
