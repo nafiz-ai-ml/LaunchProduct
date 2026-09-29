@@ -757,7 +757,7 @@ Paid promotions must remain **100% transparent and structurally separated** from
   - **Tier 2: Category Spotlight** (Max 1 slot per category per week).
   - **Tier 3: Run-of-Site Featured** (Rotating banner).
 - Sold-out dates are clearly disabled with "Sold Out" badges.
-- Pricing displayed in clear USD amounts with transparent Merchant of Record (Paddle / Lemon Squeezy) checkout.
+- Pricing displayed in clear USD amounts with seamless, bank-grade 256-bit SSL encrypted checkout powered by Paddle under the hood (supporting Credit/Debit cards, Apple Pay, and Google Pay).
 
 ### 31.2 Sponsored Card Demarcation Rules
 - All sponsored cards feature a visible **`Sponsored`** badge in Amber (`#B45309` on `#FFFDF5`).

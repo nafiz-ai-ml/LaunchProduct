@@ -310,17 +310,17 @@ export function Navbar() {
           isMobileMenuOpen ? 'pointer-events-auto visible' : 'pointer-events-none invisible'
         }`}
       >
-        {/* Backdrop Overlay with smooth fade */}
+        {/* Backdrop Overlay with pure color (no blur) */}
         <div
           onClick={() => setIsMobileMenuOpen(false)}
-          className={`fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity duration-300 ease-out ${
+          className={`fixed inset-0 bg-black/60 transition-opacity duration-300 ease-out ${
             isMobileMenuOpen ? 'opacity-100' : 'opacity-0'
           }`}
         />
 
-        {/* Right Drawer Panel with cubic-bezier smooth glide */}
+        {/* Right Drawer Panel with solid pure color (no blur) */}
         <div
-          className={`fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-surface-elevated/95 backdrop-blur-2xl border-l border-border shadow-2xl z-50 flex flex-col justify-between p-6 transition-transform duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          className={`fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-surface border-l border-border shadow-2xl z-50 flex flex-col justify-between p-6 transition-transform duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
         >

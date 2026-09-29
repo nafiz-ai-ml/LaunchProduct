@@ -169,8 +169,6 @@ export default function PromotePage() {
     today.setHours(0, 0, 0, 0);
     return today.toISOString().split('T')[0];
   });
-  const [selectedProvider, setSelectedProvider] = useState<'paddle' | 'lemonsqueezy'>('paddle');
-
   // Availability State
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityResult, setAvailabilityResult] = useState<{
@@ -357,7 +355,7 @@ export default function PromotePage() {
         tier: selectedTierKey,
         startDate: new Date(selectedDate).toISOString(),
         startsAt: new Date(selectedDate).toISOString(),
-        provider: selectedProvider,
+        provider: 'paddle',
       };
 
       if (selectedTierKey === 'CATEGORY_FEATURED' && selectedCategorySlug) {
@@ -793,55 +791,21 @@ export default function PromotePage() {
                 )}
               </div>
 
-              {/* Payment Provider Selection */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-text-muted block mb-2">
-                  Merchant of Record (MoR) Gateway
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProvider('paddle')}
-                    className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3 focus-ring ${
-                      selectedProvider === 'paddle'
-                        ? 'bg-primary/5 border-primary ring-1 ring-primary text-text-primary'
-                        : 'bg-bg border-border text-text-secondary hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center shrink-0 mt-0.5">
-                      {selectedProvider === 'paddle' && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                      )}
-                    </div>
-                    <div>
-                      <span className="font-bold text-xs block text-text-primary">Paddle.com (Recommended)</span>
-                      <span className="text-[11px] text-text-muted block mt-0.5">
-                        Global tax &amp; VAT handling, Apple Pay, Google Pay, Credit Cards.
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProvider('lemonsqueezy')}
-                    className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3 focus-ring ${
-                      selectedProvider === 'lemonsqueezy'
-                        ? 'bg-primary/5 border-primary ring-1 ring-primary text-text-primary'
-                        : 'bg-bg border-border text-text-secondary hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center shrink-0 mt-0.5">
-                      {selectedProvider === 'lemonsqueezy' && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                      )}
-                    </div>
-                    <div>
-                      <span className="font-bold text-xs block text-text-primary">Lemon Squeezy</span>
-                      <span className="text-[11px] text-text-muted block mt-0.5">
-                        Multi-currency checkout, PayPal, Stripe rail redundancy.
-                      </span>
-                    </div>
-                  </button>
+              {/* Clean Payment Security Assurance (Paddle works securely under the hood) */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-bg border border-border flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                  <ShieldCheck className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-text-primary">Bank-Grade 256-Bit SSL Checkout</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      Encrypted &amp; Protected
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
+                    Major Credit &amp; Debit Cards, Apple Pay, and Google Pay supported. Instant official tax invoice &amp; receipt provided upon confirmation.
+                  </p>
                 </div>
               </div>
             </div>
@@ -907,7 +871,7 @@ export default function PromotePage() {
 
               <div className="text-[11px] text-text-muted text-center leading-relaxed">
                 <Lock className="w-3.5 h-3.5 inline mr-1 text-text-muted" />
-                Payments processed securely by {selectedProvider === 'paddle' ? 'Paddle Inc.' : 'Lemon Squeezy'}. Invoices and receipts generated automatically.
+                Payments processed securely with instant automated tax invoice &amp; receipt generation.
               </div>
             </div>
           </div>
