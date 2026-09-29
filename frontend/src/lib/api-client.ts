@@ -27,12 +27,14 @@ export const apiClient = axios.create({
   timeout: 15000,
 });
 
-// Request interceptor: Debug logging in development
+// Request interceptor: Attach Authorization Bearer token from localStorage
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-      // Client-side debug logging
-      // console.debug(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('lp_token');
+      if (token && !config.headers.Authorization) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },

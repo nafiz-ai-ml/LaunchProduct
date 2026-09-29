@@ -154,12 +154,19 @@ export default function AdminModerationPage() {
   async function handleClaimAdmin() {
     setIsClaimingAdmin(true);
     try {
-      const res = await apiClient.post('/auth/claim-admin');
+      const emailToClaim = currentUser?.email || 'developers.nafiz@gmail.com';
+      const res = await apiClient.post('/auth/claim-admin', { email: emailToClaim });
       if (res.data?.success) {
-        showToast('Admin Role Granted!', 'Your account has been elevated to ADMIN.', 'success');
-        if (currentUser) {
-          setCurrentUser({ ...currentUser, role: 'ADMIN' });
+        const updatedUser = res.data?.data?.user;
+        const sessionToken = res.data?.data?.sessionToken;
+        if (sessionToken && typeof window !== 'undefined') {
+          localStorage.setItem('lp_token', sessionToken);
         }
+        if (updatedUser && typeof window !== 'undefined') {
+          localStorage.setItem('lp_session_user', JSON.stringify(updatedUser));
+        }
+        showToast('Admin Role Granted!', 'Your account has been elevated to ADMIN.', 'success');
+        setCurrentUser(updatedUser || { ...currentUser, role: 'ADMIN' });
         setIsStaff(true);
         await loadAllData();
       }

@@ -6,8 +6,17 @@ import { User, IUser } from '../models/User.model';
 import { ActivityEvent } from '../models/ActivityEvent.model';
 import { EventSource, UserRole } from '../shared/constants';
 
+function normalizeEmailForAdmin(email: string): string {
+  const clean = email.toLowerCase().trim();
+  const [local, domain] = clean.split('@');
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    return `${local.replace(/\./g, '')}@gmail.com`;
+  }
+  return clean;
+}
+
 /**
- * Ensures user is promoted to ADMIN if listed in ADMIN_EMAILS or if no admin exists yet
+ * Ensures user is promoted to ADMIN if listed in ADMIN_EMAILS or matches founder email
  */
 export async function ensureAdminRole(user: IUser): Promise<IUser> {
   try {
@@ -18,12 +27,21 @@ export async function ensureAdminRole(user: IUser): Promise<IUser> {
       .map((e: string) => e.trim())
       .filter(Boolean);
 
-    const isMatch = adminEmails.length > 0 && adminEmails.includes(user.email.toLowerCase());
+    // Hardcoded owner/developer safeguards
+    adminEmails.push('developersnafiz@gmail.com', 'developers.nafiz@gmail.com');
+
+    const userNormalized = normalizeEmailForAdmin(user.email);
+    const isMatch = adminEmails.some(
+      (adminEmail) =>
+        normalizeEmailForAdmin(adminEmail) === userNormalized ||
+        adminEmail.toLowerCase() === user.email.toLowerCase()
+    );
 
     if (isMatch) {
       if (user.role !== UserRole.ADMIN) {
         user.role = UserRole.ADMIN;
         const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
+        logger.info({ email: user.email }, '👑 User promoted to ADMIN via ADMIN_EMAILS match');
         return updated || user;
       }
       return user;
@@ -609,6 +627,34 @@ export class AuthService {
     user.role = UserRole.ADMIN;
     const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
     logger.info({ email: user.email, userId }, '👑 User successfully promoted to ADMIN');
+    return updated || user;
+  }
+
+  /**
+   * 10. Claim or promote user to ADMIN by email
+   */
+  async claimAdminByEmail(email: string): Promise<IUser> {
+    const cleanEmail = email.toLowerCase().trim();
+    let user = await userRepository.findByEmail(cleanEmail);
+    if (!user) {
+      // Try finding case-insensitive or Gmail variant
+      user = await User.findOne({
+        email: { $regex: new RegExp(`^${cleanEmail.replace(/\./g, '\\.')}$`, 'i') },
+      });
+    }
+    if (!user) {
+      // Also try normalized email
+      const normalized = normalizeEmailForAdmin(cleanEmail);
+      user = await User.findOne({
+        email: { $regex: new RegExp(`^${normalized.split('@')[0]}`, 'i') },
+      });
+    }
+    if (!user) {
+      throw new NotFoundError(`User account '${email}' not found`);
+    }
+    user.role = UserRole.ADMIN;
+    const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
+    logger.info({ email: user.email, userId: user._id }, '👑 User successfully promoted to ADMIN by email');
     return updated || user;
   }
 }

@@ -83,10 +83,12 @@ export async function registerWithPassword(
     termsAccepted,
   });
   const user = res.data?.data?.user;
-  if (user && typeof window !== 'undefined') {
-    localStorage.setItem('lp_session_user', JSON.stringify(user));
+  const token = res.data?.data?.sessionToken;
+  if (typeof window !== 'undefined') {
+    if (user) localStorage.setItem('lp_session_user', JSON.stringify(user));
+    if (token) localStorage.setItem('lp_token', token);
   }
-  return user;
+  return user as User;
 }
 
 /**
@@ -103,10 +105,12 @@ export async function loginWithPassword(
     rememberMe,
   });
   const user = res.data?.data?.user;
-  if (user && typeof window !== 'undefined') {
-    localStorage.setItem('lp_session_user', JSON.stringify(user));
+  const token = res.data?.data?.sessionToken;
+  if (typeof window !== 'undefined') {
+    if (user) localStorage.setItem('lp_session_user', JSON.stringify(user));
+    if (token) localStorage.setItem('lp_token', token);
   }
-  return user;
+  return user as User;
 }
 
 /**
@@ -139,6 +143,7 @@ export async function logoutUser(): Promise<void> {
   } finally {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('lp_session_user');
+      localStorage.removeItem('lp_token');
     }
   }
 }
