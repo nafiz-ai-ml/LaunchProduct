@@ -1,3 +1,5 @@
+import dns from 'dns';
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 import mongoose from 'mongoose';
 import { config } from '../shared/config';
 import { User } from '../models/User.model';
@@ -10,33 +12,29 @@ async function main() {
   await mongoose.connect(config.MONGODB_URI);
   logger.info('Connected to MongoDB');
 
+  const emailsToPromote = [
+    'developers.nafiz@gmail.com',
+    'developersnafiz@gmail.com',
+    'muhammadnafiz403@gmail.com',
+    'seospecialist950@gmail.com',
+  ];
+
   if (emailArg) {
-    const email = emailArg.toLowerCase().trim();
-    const user = await User.findOne({ email });
-    if (!user) {
-      console.error(`❌ User with email "${email}" not found.`);
-      process.exit(1);
-    }
-    user.role = UserRole.ADMIN;
-    await user.save();
-    console.log(`✅ User ${email} has been successfully promoted to role: ADMIN`);
-  } else {
-    // If no email passed, promote the latest registered user or show all users
-    const users = await User.find({}).sort({ createdAt: -1 }).limit(10);
-    if (users.length === 0) {
-      console.log('No users found in database.');
-      process.exit(0);
-    }
-    console.log('Recent Users:');
-    users.forEach((u, i) => {
-      console.log(`  [${i + 1}] ${u.email} | Role: ${u.role} | ID: ${u._id}`);
-    });
-    // Promote the first user
-    const firstUser = users[0];
-    firstUser.role = UserRole.ADMIN;
-    await firstUser.save();
-    console.log(`✅ Latest user ${firstUser.email} promoted to ADMIN!`);
+    emailsToPromote.push(emailArg.toLowerCase().trim());
   }
+
+  for (const email of emailsToPromote) {
+    const user = await User.findOne({ email });
+    if (user) {
+      user.role = UserRole.ADMIN;
+      await user.save();
+      console.log(`✅ Promoted ${email} to role: ADMIN`);
+    }
+  }
+
+  const allAdmins = await User.find({ role: UserRole.ADMIN });
+  console.log('\n👑 Current Platform Admins:');
+  allAdmins.forEach((a) => console.log(`  - ${a.email} (${a.role})`));
 
   await mongoose.disconnect();
   process.exit(0);
