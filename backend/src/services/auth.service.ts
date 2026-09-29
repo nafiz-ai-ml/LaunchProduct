@@ -140,12 +140,9 @@ export function verifyPassword(password: string, combinedHash: string): boolean 
 }
 
 export interface RegisterResult {
-  requiresVerification: boolean;
-  email: string;
-  message: string;
-  devVerificationCode?: string;
-  devVerificationUrl?: string;
   user: IUser;
+  sessionToken: string;
+  message: string;
 }
 
 export class AuthService {
@@ -437,27 +434,24 @@ export class AuthService {
     }
 
     const existingUser = await userRepository.findByEmail(normalizedEmail);
-    if (existingUser && existingUser.passwordHash && existingUser.isEmailVerified) {
+    if (existingUser && existingUser.passwordHash) {
       throw new ValidationError('An account with this email already exists. Please sign in instead.', [
         { field: 'email', code: 'EMAIL_ALREADY_EXISTS', message: 'Account already exists' },
       ]);
     }
 
     const passwordHash = hashPassword(password);
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     let user: IUser;
     if (existingUser) {
       user = (await userRepository.updateById(existingUser._id.toString(), {
         name: name.trim(),
         passwordHash,
-        isEmailVerified: false,
-        emailVerificationCode: verificationCode,
-        emailVerificationToken: tokenHash,
-        emailVerificationExpires,
+        isEmailVerified: true,
+        emailVerificationCode: undefined,
+        emailVerificationToken: undefined,
+        emailVerificationExpires: undefined,
+        lastLoginAt: new Date(),
       })) || existingUser;
     } else {
       user = await userRepository.create({
@@ -465,24 +459,28 @@ export class AuthService {
         email: normalizedEmail,
         passwordHash,
         role: UserRole.HUNTER,
-        isEmailVerified: false,
-        emailVerificationCode: verificationCode,
-        emailVerificationToken: tokenHash,
-        emailVerificationExpires,
+        isEmailVerified: true,
+        lastLoginAt: new Date(),
       });
     }
 
     user = await ensureAdminRole(user);
 
-    const devVerificationUrl = await this.dispatchVerificationEmail(user, verificationCode, rawToken);
+    const secret = process.env.JWT_SECRET || config.JWT_SECRET;
+    const sessionToken = jwt.sign(
+      {
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role,
+      },
+      secret,
+      { expiresIn: '30d' }
+    );
 
     return {
-      requiresVerification: true,
-      email: user.email,
-      message: 'Please enter the 6-digit verification code sent to your email to activate your account.',
-      devVerificationCode: process.env.NODE_ENV !== 'production' ? verificationCode : undefined,
-      devVerificationUrl: process.env.NODE_ENV !== 'production' ? devVerificationUrl : undefined,
       user,
+      sessionToken,
+      message: 'Account created successfully.',
     };
   }
 
@@ -519,33 +517,14 @@ export class AuthService {
       );
     }
 
-    // Verify email enforcement
-    if (user.isEmailVerified === false) {
-      // Automatically send a fresh code if expired or missing
-      if (!user.emailVerificationCode || !user.emailVerificationExpires || new Date(user.emailVerificationExpires) <= new Date()) {
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const rawToken = crypto.randomBytes(32).toString('hex');
-        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-        const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-        await userRepository.updateById(user._id.toString(), {
-          emailVerificationCode: verificationCode,
-          emailVerificationToken: tokenHash,
-          emailVerificationExpires,
-        });
-
-        await this.dispatchVerificationEmail(user, verificationCode, rawToken);
-      }
-
-      throw new AuthenticationError(
-        'Your email address is not verified. Please enter the 6-digit verification code sent to your email.',
-        'EMAIL_NOT_VERIFIED'
-      );
-    }
-
-    // For legacy users created without the isEmailVerified flag, auto-mark verified
-    if (user.isEmailVerified === undefined) {
-      await userRepository.updateById(user._id.toString(), { isEmailVerified: true });
+    // Auto-verify on login for frictionless access (unblocks previously registered test accounts)
+    if (!user.isEmailVerified) {
+      await userRepository.updateById(user._id.toString(), {
+        isEmailVerified: true,
+        emailVerificationCode: undefined,
+        emailVerificationToken: undefined,
+        emailVerificationExpires: undefined,
+      });
       user.isEmailVerified = true;
     }
 

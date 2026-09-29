@@ -4,12 +4,9 @@ import { User, ApiResponse } from '@/types';
 export type UserSession = User;
 
 export interface RegisterResponse {
-  requiresVerification: boolean;
-  email: string;
-  message: string;
-  devVerificationCode?: string;
-  devVerificationUrl?: string;
-  user?: User;
+  user: User;
+  sessionToken: string;
+  message?: string;
 }
 
 export interface VerifyEmailResponse {
@@ -19,7 +16,7 @@ export interface VerifyEmailResponse {
 
 /**
  * Registers user with full name, email, password, and terms acceptance.
- * Triggers dispatch of 6-digit verification code to email.
+ * Instantly logs in the user and saves session token.
  */
 export async function registerWithPassword(
   name: string,
@@ -33,7 +30,14 @@ export async function registerWithPassword(
     password,
     termsAccepted,
   });
-  return res.data?.data as RegisterResponse;
+  const data = res.data?.data as RegisterResponse;
+  const user = data?.user;
+  const sessionToken = data?.sessionToken;
+  if (typeof window !== 'undefined') {
+    if (user) localStorage.setItem('lp_session_user', JSON.stringify(user));
+    if (sessionToken) localStorage.setItem('lp_token', sessionToken);
+  }
+  return data;
 }
 
 /**
@@ -76,12 +80,14 @@ export async function resendVerificationCode(
  */
 export async function getSessionUser(): Promise<User | null> {
   try {
-    const res = await apiClient.get<ApiResponse<User>>('/auth/me');
-    if (res.data?.data) {
+    const res = await apiClient.get<any>('/auth/me');
+    const rawData = res.data?.data;
+    const user: User | null = rawData?.user || rawData || null;
+    if (user && user.email) {
       if (typeof window !== 'undefined') {
-        localStorage.setItem('lp_session_user', JSON.stringify(res.data.data));
+        localStorage.setItem('lp_session_user', JSON.stringify(user));
       }
-      return res.data.data;
+      return user;
     }
   } catch {
     // Fallback to cached session if network or cookie issue
@@ -91,7 +97,9 @@ export async function getSessionUser(): Promise<User | null> {
     const cached = localStorage.getItem('lp_session_user');
     if (cached) {
       try {
-        return JSON.parse(cached);
+        const parsed = JSON.parse(cached);
+        const user = parsed?.user || parsed;
+        if (user && user.email) return user;
       } catch {}
     }
   }
@@ -113,8 +121,9 @@ export async function loginWithPassword(
     password,
     rememberMe,
   });
-  const user = res.data?.data?.user;
-  const token = res.data?.data?.sessionToken;
+  const rawData = res.data?.data;
+  const user = rawData?.user || (rawData as any);
+  const token = rawData?.sessionToken;
   if (typeof window !== 'undefined') {
     if (user) localStorage.setItem('lp_session_user', JSON.stringify(user));
     if (token) localStorage.setItem('lp_token', token);

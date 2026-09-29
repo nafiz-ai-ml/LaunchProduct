@@ -315,6 +315,7 @@ export class AuthController {
         data: {
           user: {
             id: user._id.toString(),
+            name: user.name,
             email: user.email,
             role: user.role,
             founderProfile: user.founderProfile,
@@ -402,12 +403,12 @@ export class AuthController {
         logger.warn({ err: logErr }, 'Failed to record USER_REGISTERED event');
       }
 
+      // Set 30-day session cookie for frictionless instant login
+      res.cookie(COOKIE_NAME, result.sessionToken, getCookieOptions(30));
+
       res.status(201).json({
         success: true,
         data: {
-          requiresVerification: result.requiresVerification,
-          email: result.email,
-          message: result.message,
           user: {
             id: result.user._id.toString(),
             name: result.user.name,
@@ -415,12 +416,8 @@ export class AuthController {
             role: result.user.role,
             createdAt: result.user.createdAt,
           },
-          ...(process.env.NODE_ENV !== 'production'
-            ? {
-                devVerificationCode: result.devVerificationCode,
-                devVerificationUrl: result.devVerificationUrl,
-              }
-            : {}),
+          sessionToken: result.sessionToken,
+          message: 'Account created successfully',
         },
         meta: getMetadata(req),
       });

@@ -67,6 +67,7 @@ export default function AuthPage() {
   };
 
   // Sign In with Email & Password
+  // Sign In with Email & Password
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -85,21 +86,15 @@ export default function AuthPage() {
     setIsLoading(true);
     try {
       await loginWithPassword(email.trim().toLowerCase(), password, rememberMe);
+      setSuccessMessage('Signed in successfully! Taking you to your dashboard...');
       const redirect = typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
         : '/dashboard';
-      router.push(redirect);
+      setTimeout(() => {
+        router.push(redirect);
+      }, 400);
     } catch (err: any) {
-      const errCode = err?.response?.data?.error?.code;
       const errMsg = err?.response?.data?.error?.message || err?.message || '';
-
-      if (errCode === 'EMAIL_NOT_VERIFIED' || errMsg.toLowerCase().includes('verif')) {
-        setVerificationEmail(email.trim().toLowerCase());
-        setAuthMode('verify_otp');
-        setErrorMessage('Your email address is not verified yet. We have dispatched a 6-digit code to your inbox.');
-        return;
-      }
-
       setErrorMessage(
         errMsg || 'Invalid email or password. Please try again or use Forgot Password.'
       );
@@ -108,7 +103,7 @@ export default function AuthPage() {
     }
   };
 
-  // Sign Up with Name, Email & Password
+  // Sign Up with Name, Email & Password (Instant Frictionless Auth)
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -141,16 +136,14 @@ export default function AuthPage() {
 
     setIsLoading(true);
     try {
-      const res = await registerWithPassword(name.trim(), email.trim().toLowerCase(), password, termsAccepted);
-      setVerificationEmail(email.trim().toLowerCase());
-      if (res?.devVerificationCode) {
-        setDevOtpCode(res.devVerificationCode);
-      }
-      if (res?.devVerificationUrl) {
-        setDevVerificationUrl(res.devVerificationUrl);
-      }
-      setAuthMode('verify_otp');
-      setSuccessMessage('Account registered! Enter the 6-digit code sent to your email to activate.');
+      await registerWithPassword(name.trim(), email.trim().toLowerCase(), password, termsAccepted);
+      setSuccessMessage('Account created successfully! Taking you to your dashboard...');
+      const redirect = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
+        : '/dashboard';
+      setTimeout(() => {
+        router.push(redirect);
+      }, 400);
     } catch (err: any) {
       setErrorMessage(
         err?.response?.data?.error?.message ||
