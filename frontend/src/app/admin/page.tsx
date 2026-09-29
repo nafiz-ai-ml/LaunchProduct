@@ -141,6 +141,7 @@ export default function AdminModerationPage() {
 
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [isClaimingAdmin, setIsClaimingAdmin] = useState(false);
 
   const showToast = (title: string, description?: string, type: 'success' | 'info' | 'error' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -149,6 +150,25 @@ export default function AdminModerationPage() {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4500);
   };
+
+  async function handleClaimAdmin() {
+    setIsClaimingAdmin(true);
+    try {
+      const res = await apiClient.post('/auth/claim-admin');
+      if (res.data?.success) {
+        showToast('Admin Role Granted!', 'Your account has been elevated to ADMIN.', 'success');
+        if (currentUser) {
+          setCurrentUser({ ...currentUser, role: 'ADMIN' });
+        }
+        setIsStaff(true);
+        await loadAllData();
+      }
+    } catch (err: any) {
+      showToast('Elevation Failed', err?.message || 'Failed to claim admin.', 'error');
+    } finally {
+      setIsClaimingAdmin(false);
+    }
+  }
 
   // ==========================================
   // Auth Verification & Staff Check
@@ -491,7 +511,39 @@ export default function AdminModerationPage() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 mt-6">
+          {/* 1-Click Promote to Admin Card */}
+          <div className="mt-4 mb-2 p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-center space-y-2.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-blue-500/20 text-blue-600 dark:text-blue-400">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Platform Owner</span>
+            </div>
+            <h4 className="text-sm font-bold text-text-primary">
+              Elevate Account to Administrator
+            </h4>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              If you are testing or administering this platform, click below to immediately grant this account full ADMIN access.
+            </p>
+            <button
+              type="button"
+              onClick={handleClaimAdmin}
+              disabled={isClaimingAdmin}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+            >
+              {isClaimingAdmin ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Elevating to ADMIN...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                  <span>Promote This Account to ADMIN</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 mt-4">
             <Link
               href="/"
               className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-center"
