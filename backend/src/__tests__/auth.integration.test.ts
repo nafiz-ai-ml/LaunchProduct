@@ -6,7 +6,7 @@ import { createApp } from '../server';
 import { authService } from '../services/auth.service';
 import { userRepository } from '../repositories/user.repository';
 import { UserRole } from '../shared/constants';
-import { AuthenticationError } from '../shared/errors';
+import { AuthenticationError, ValidationError } from '../shared/errors';
 
 import { config } from '../shared/config';
 
@@ -72,27 +72,26 @@ describe('Auth Integration Tests (supertest)', () => {
     jest.restoreAllMocks();
   });
 
-  // 1. POST /api/v1/auth/magic-link with valid email → 200 + generic message
-  test('1. POST /api/v1/auth/magic-link with valid email → 200 + generic message', async () => {
-    jest.spyOn(authService, 'requestMagicLink').mockResolvedValue({
-      rawToken: 'mock_token_123',
-      magicLinkUrl: 'http://localhost:3000/auth/verify?token=mock_token_123',
+  // 1. POST /api/v1/auth/resend-verification with valid email → 200
+  test('1. POST /api/v1/auth/resend-verification with valid email → 200', async () => {
+    jest.spyOn(authService, 'resendVerificationCode').mockResolvedValue({
+      success: true,
+      message: 'A new 6-digit verification code has been sent to your email.',
     });
 
     const res = await request(app)
-      .post('/api/v1/auth/magic-link')
+      .post('/api/v1/auth/resend-verification')
       .send({ email: 'alex.founder@supasite.io' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.message).toMatch(/login link has been dispatched/i);
-    expect(res.body.data.expiresInSeconds).toBe(900);
+    expect(res.body.data.message).toMatch(/verification code has been sent/i);
   });
 
-  // 2. POST /api/v1/auth/magic-link with invalid email → 400 VALIDATION_FAILED
-  test('2. POST /api/v1/auth/magic-link with invalid email → 400 VALIDATION_FAILED', async () => {
+  // 2. POST /api/v1/auth/resend-verification with invalid email → 400 VALIDATION_FAILED
+  test('2. POST /api/v1/auth/resend-verification with invalid email → 400 VALIDATION_FAILED', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/magic-link')
+      .post('/api/v1/auth/resend-verification')
       .send({ email: 'not-an-email' });
 
     expect(res.status).toBe(400);
@@ -100,27 +99,16 @@ describe('Auth Integration Tests (supertest)', () => {
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
   });
 
-  // 3. POST /api/v1/auth/magic-link with disposable email domain → 422 DISPOSABLE_EMAIL_REJECTED
-  test('3. POST /api/v1/auth/magic-link with disposable email domain → 422 DISPOSABLE_EMAIL_REJECTED', async () => {
-    const res = await request(app)
-      .post('/api/v1/auth/magic-link')
-      .send({ email: 'spammer@mailinator.com' });
-
-    expect(res.status).toBe(422);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error.code).toBe('DISPOSABLE_EMAIL_REJECTED');
-  });
-
-  // 4. GET /api/v1/auth/verify?token=validToken → 200 + Set-Cookie header
-  test('4. GET /api/v1/auth/verify?token=validToken → 200 + Set-Cookie header', async () => {
-    jest.spyOn(authService, 'verifyMagicLink').mockResolvedValue({
+  // 3. POST /api/v1/auth/verify-email with valid 6-digit code → 200 + Set-Cookie header
+  test('3. POST /api/v1/auth/verify-email with valid 6-digit code → 200 + Set-Cookie header', async () => {
+    jest.spyOn(authService, 'verifyEmail').mockResolvedValue({
       user: mockUser as any,
       sessionToken: validSessionToken,
     });
 
     const res = await request(app)
-      .get('/api/v1/auth/verify?token=validToken&format=json')
-      .set('Accept', 'application/json');
+      .post('/api/v1/auth/verify-email')
+      .send({ email: 'alex.founder@supasite.io', code: '123456' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -134,34 +122,34 @@ describe('Auth Integration Tests (supertest)', () => {
     expect(setCookie[0]).toContain('HttpOnly');
   });
 
-  // 5. GET /api/v1/auth/verify?token=expiredToken → 401 TOKEN_EXPIRED
-  test('5. GET /api/v1/auth/verify?token=expiredToken → 401 TOKEN_EXPIRED', async () => {
-    jest.spyOn(authService, 'verifyMagicLink').mockRejectedValue(
-      new AuthenticationError('Magic link token has expired', 'TOKEN_EXPIRED')
-    );
+  // 4. GET /api/v1/auth/verify-email?token=validToken → 200 (JSON)
+  test('4. GET /api/v1/auth/verify-email?token=validToken → 200 (JSON)', async () => {
+    jest.spyOn(authService, 'verifyEmail').mockResolvedValue({
+      user: mockUser as any,
+      sessionToken: validSessionToken,
+    });
 
     const res = await request(app)
-      .get('/api/v1/auth/verify?token=expiredToken')
+      .get('/api/v1/auth/verify-email?token=validToken&format=json')
       .set('Accept', 'application/json');
 
-    expect(res.status).toBe(401);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error.code).toBe('TOKEN_EXPIRED');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.user.email).toBe(mockUser.email);
   });
 
-  // 6. GET /api/v1/auth/verify?token=usedToken → 401 MAGIC_LINK_ALREADY_USED
-  test('6. GET /api/v1/auth/verify?token=usedToken → 401 MAGIC_LINK_ALREADY_USED', async () => {
-    jest.spyOn(authService, 'verifyMagicLink').mockRejectedValue(
-      new AuthenticationError('Magic link token has already been used', 'MAGIC_LINK_ALREADY_USED')
+  // 5. POST /api/v1/auth/verify-email with expired code → 400
+  test('5. POST /api/v1/auth/verify-email with expired code → 400', async () => {
+    jest.spyOn(authService, 'verifyEmail').mockRejectedValue(
+      new ValidationError('Verification code has expired')
     );
 
     const res = await request(app)
-      .get('/api/v1/auth/verify?token=usedToken')
-      .set('Accept', 'application/json');
+      .post('/api/v1/auth/verify-email')
+      .send({ email: 'alex.founder@supasite.io', code: '999999' });
 
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
-    expect(res.body.error.code).toBe('MAGIC_LINK_ALREADY_USED');
   });
 
   // 7. GET /api/v1/auth/me without cookie → 401 UNAUTHORIZED

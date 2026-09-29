@@ -3,39 +3,72 @@ import { User, ApiResponse } from '@/types';
 
 export type UserSession = User;
 
-export interface MagicLinkResponse {
-  success: boolean;
-  devMagicLinkUrl?: string;
-  rawToken?: string;
-  expiresInSeconds?: number;
+export interface RegisterResponse {
+  requiresVerification: boolean;
+  email: string;
+  message: string;
+  devVerificationCode?: string;
+  devVerificationUrl?: string;
+  user?: User;
+}
+
+export interface VerifyEmailResponse {
+  user: User;
+  sessionToken: string;
 }
 
 /**
- * Dispatches a passwordless magic link request to user's email
+ * Registers user with full name, email, password, and terms acceptance.
+ * Triggers dispatch of 6-digit verification code to email.
  */
-export async function requestMagicLink(email: string): Promise<MagicLinkResponse> {
-  const res = await apiClient.post<ApiResponse<{ message: string; expiresInSeconds: number; devMagicLinkUrl?: string; rawToken?: string }>>(
-    '/auth/magic-link',
+export async function registerWithPassword(
+  name: string,
+  email: string,
+  password: string,
+  termsAccepted: boolean
+): Promise<RegisterResponse> {
+  const res = await apiClient.post<ApiResponse<RegisterResponse>>('/auth/register', {
+    name,
+    email,
+    password,
+    termsAccepted,
+  });
+  return res.data?.data as RegisterResponse;
+}
+
+/**
+ * Verifies email using 6-digit numeric OTP code or 1-click token
+ */
+export async function verifyEmail(
+  email?: string,
+  code?: string,
+  token?: string
+): Promise<VerifyEmailResponse> {
+  const res = await apiClient.post<ApiResponse<VerifyEmailResponse>>('/auth/verify-email', {
+    email,
+    code,
+    token,
+  });
+  const user = res.data?.data?.user;
+  const sessionToken = res.data?.data?.sessionToken;
+  if (typeof window !== 'undefined') {
+    if (user) localStorage.setItem('lp_session_user', JSON.stringify(user));
+    if (sessionToken) localStorage.setItem('lp_token', sessionToken);
+  }
+  return res.data?.data as VerifyEmailResponse;
+}
+
+/**
+ * Resends 6-digit verification code to user email
+ */
+export async function resendVerificationCode(
+  email: string
+): Promise<{ success: boolean; message: string; devVerificationCode?: string }> {
+  const res = await apiClient.post<ApiResponse<{ success: boolean; message: string; devVerificationCode?: string }>>(
+    '/auth/resend-verification',
     { email }
   );
-  return {
-    success: res.data?.success ?? true,
-    devMagicLinkUrl: (res.data?.data as any)?.devMagicLinkUrl,
-    rawToken: (res.data?.data as any)?.rawToken,
-    expiresInSeconds: (res.data?.data as any)?.expiresInSeconds,
-  };
-}
-
-/**
- * Verifies a magic link token from email URL and establishes HTTP-only session cookie
- */
-export async function verifyMagicLink(token: string): Promise<User> {
-  const res = await apiClient.get<ApiResponse<User>>(`/auth/verify?token=${encodeURIComponent(token)}`);
-  const user = (res.data as any)?.data?.user || res.data?.data;
-  if (user && typeof window !== 'undefined') {
-    localStorage.setItem('lp_session_user', JSON.stringify(user));
-  }
-  return user;
+  return res.data?.data || { success: true, message: 'Verification code resent.' };
 }
 
 /**
@@ -66,30 +99,6 @@ export async function getSessionUser(): Promise<User | null> {
 }
 
 export const getCurrentUser = getSessionUser;
-
-/**
- * Registers user with full name, email, password, and terms acceptance
- */
-export async function registerWithPassword(
-  name: string,
-  email: string,
-  password: string,
-  termsAccepted: boolean
-): Promise<User> {
-  const res = await apiClient.post<ApiResponse<{ user: User; sessionToken: string }>>('/auth/register', {
-    name,
-    email,
-    password,
-    termsAccepted,
-  });
-  const user = res.data?.data?.user;
-  const token = res.data?.data?.sessionToken;
-  if (typeof window !== 'undefined') {
-    if (user) localStorage.setItem('lp_session_user', JSON.stringify(user));
-    if (token) localStorage.setItem('lp_token', token);
-  }
-  return user as User;
-}
 
 /**
  * Logs in with email, password, and optional rememberMe
@@ -151,9 +160,9 @@ export async function logoutUser(): Promise<void> {
 export const logout = logoutUser;
 
 export default {
-  requestMagicLink,
-  verifyMagicLink,
   registerWithPassword,
+  verifyEmail,
+  resendVerificationCode,
   loginWithPassword,
   forgotPassword,
   resetPassword,
@@ -162,3 +171,4 @@ export default {
   logoutUser,
   logout,
 };
+

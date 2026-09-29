@@ -139,147 +139,68 @@ export function verifyPassword(password: string, combinedHash: string): boolean 
   }
 }
 
+export interface RegisterResult {
+  requiresVerification: boolean;
+  email: string;
+  message: string;
+  devVerificationCode?: string;
+  devVerificationUrl?: string;
+  user: IUser;
+}
+
 export class AuthService {
   /**
-   * 1. Request passwordless magic link
+   * Helper: Dispatch 6-digit OTP and 1-click verification link to user inbox
    */
-  async requestMagicLink(email: string, ipAddress: string): Promise<{ rawToken: string; magicLinkUrl: string }> {
-    if (!email || typeof email !== 'string') {
-      throw new ValidationError('Email address is required', [
-        { field: 'email', code: 'REQUIRED', message: 'Email address cannot be empty' },
-      ]);
-    }
+  async dispatchVerificationEmail(user: IUser, verificationCode: string, rawToken: string): Promise<string> {
+    const frontendUrl = (process.env.FRONTEND_URL || config.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const verificationUrl = `${frontendUrl}/auth/verify-email?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
 
-    // Normalize and validate email
-    const normalizedEmail = email.toLowerCase().trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(normalizedEmail)) {
-      throw new ValidationError('Invalid email format', [
-        { field: 'email', code: 'INVALID_FORMAT', message: 'Must be a valid RFC 5322 email address' },
-      ]);
-    }
-
-    // Check disposable email blacklist
-    const domain = normalizedEmail.split('@')[1];
-    if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
-      throw new UnprocessableError(
-        'Disposable or temporary email addresses are not permitted',
-        [
-          {
-            field: 'email',
-            code: 'DISPOSABLE_EMAIL_REJECTED',
-            message: `Domain '${domain}' is on the temporary email blacklist`,
-          },
-        ],
-        'DISPOSABLE_EMAIL_REJECTED'
-      );
-    }
-
-    // Find or create user in DB
-    let user = await userRepository.findByEmail(normalizedEmail);
-    if (!user) {
-      user = await userRepository.create({
-        email: normalizedEmail,
-        role: UserRole.HUNTER,
-      });
-    }
-
-    // Reject banned accounts
-    if (user.isBanned) {
-      throw new AuthorizationError(
-        user.banReason ? `Account is banned: ${user.banReason}` : 'Account is banned',
-        'ACCOUNT_BANNED'
-      );
-    }
-
-    // Generate 32-byte cryptographically secure random token
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-
-    // Invalidate any existing MAGIC_LINK tokens for this user
-    await tokenRepository.deleteByUserId(user._id.toString(), 'MAGIC_LINK');
-
-    // Store token with 15-minute expiration
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    await tokenRepository.createToken(user._id.toString(), 'MAGIC_LINK', expiresAt, tokenHash);
-
-    // Build raw magic link URL
-    const baseUrl = process.env.FRONTEND_URL || config.FRONTEND_URL || 'https://launchproduct.io';
-    const magicLinkUrl = `${baseUrl.replace(/\/$/, '')}/auth/verify?token=${rawToken}`;
-
-    // Enqueue email job to BullMQ if Redis is available
     if (isRedisConnected()) {
       try {
-        await emailQueue.add('send-magic-link', {
-          to: normalizedEmail,
-          magicLinkUrl,
-          expiresInMinutes: 15,
+        await emailQueue.add('send-verification-email', {
+          to: user.email,
+          verificationCode,
+          verificationUrl,
+          expiresInHours: 24,
         });
-      } catch (err) {
-        logger.warn({ err, email: normalizedEmail }, 'Failed to enqueue email to BullMQ, falling back to logger');
+      } catch (err: any) {
+        logger.warn({ err: err.message, email: user.email }, 'Failed to enqueue verification email to BullMQ');
       }
     } else {
-      logger.info({ email: normalizedEmail, magicLinkUrl }, 'Redis standby: direct dev magic link ready');
+      logger.info({ email: user.email, verificationCode, verificationUrl }, '📧 Verification dispatched (local dev log)');
     }
 
-    // In non-production, log magic link for easy manual testing
     if (process.env.NODE_ENV !== 'production') {
-      logger.info({ email: normalizedEmail, magicLinkUrl }, '🔐 [DEV AUTH] Magic Link Generated');
+      logger.info(
+        { email: user.email, verificationCode, verificationUrl },
+        '🔐 [DEV AUTH] Email Verification Code & Link Generated'
+      );
     }
 
-    // Log activity_event: AUTH_MAGIC_LINK_REQUESTED
-    try {
-      await ActivityEvent.create({
-        userId: user._id,
-        eventType: 'AUTH_MAGIC_LINK_REQUESTED',
-        eventSource: EventSource.ORGANIC,
-        metadata: {
-          email: normalizedEmail,
-          ipAddress,
-        },
-      });
-    } catch (err) {
-      logger.error({ err }, 'Failed to record AUTH_MAGIC_LINK_REQUESTED activity event');
-    }
-
-    return { rawToken, magicLinkUrl };
+    return verificationUrl;
   }
 
   /**
-   * 2. Verify magic link token and establish authenticated session
+   * 1. Verify email using either 6-digit numeric OTP code or 1-click token
    */
-  async verifyMagicLink(rawToken: string): Promise<AuthSessionResult> {
-    if (!rawToken || typeof rawToken !== 'string') {
-      throw new AuthenticationError('Verification token is missing', 'TOKEN_EXPIRED');
+  async verifyEmail(email?: string, code?: string, token?: string): Promise<AuthSessionResult> {
+    if (!email && !token) {
+      throw new ValidationError('Email address or verification token is required');
     }
 
-    // Compute tokenHash from rawToken
-    const computedHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    let user: IUser | null = null;
+    const normalizedEmail = email ? email.toLowerCase().trim() : '';
 
-    // Find token by hash in DB
-    const tokenDoc = await tokenRepository.findByHash(computedHash, 'MAGIC_LINK');
-    if (!tokenDoc || tokenDoc.isUsed || new Date(tokenDoc.expiresAt) <= new Date()) {
-      throw new AuthenticationError('Magic link token is invalid or has expired', 'TOKEN_EXPIRED');
+    if (normalizedEmail) {
+      user = await userRepository.findByEmail(normalizedEmail);
+    } else if (token) {
+      const hashed = crypto.createHash('sha256').update(token.trim()).digest('hex');
+      user = await userRepository.findByVerificationToken(hashed);
     }
 
-    // Constant-time comparison using crypto.timingSafeEqual to prevent timing attacks
-    const bufComputed = Buffer.from(computedHash, 'hex');
-    const bufStored = Buffer.from(tokenDoc.tokenHash, 'hex');
-
-    if (
-      bufComputed.length !== bufStored.length ||
-      !crypto.timingSafeEqual(bufComputed, bufStored)
-    ) {
-      throw new AuthenticationError('Invalid authentication credentials', 'INVALID_CREDENTIALS');
-    }
-
-    // Mark token as consumed
-    await tokenRepository.markUsed(tokenDoc._id.toString());
-
-    // Fetch user and update lastLoginAt
-    const user = await userRepository.findById(tokenDoc.userId.toString());
     if (!user) {
-      throw new AuthenticationError('User account not found', 'UNAUTHORIZED');
+      throw new ValidationError('No account found for the provided email or verification token.');
     }
 
     if (user.isBanned) {
@@ -289,13 +210,63 @@ export class AuthService {
       );
     }
 
+    // If already verified, allow login
+    if (user.isEmailVerified) {
+      let updatedUser = await ensureAdminRole(user);
+      const secret = process.env.JWT_SECRET || config.JWT_SECRET;
+      const sessionToken = jwt.sign(
+        {
+          userId: updatedUser._id.toString(),
+          email: updatedUser.email,
+          role: updatedUser.role,
+        },
+        secret,
+        { expiresIn: '30d' }
+      );
+      return { user: updatedUser, sessionToken };
+    }
+
+    // Check expiry
+    if (!user.emailVerificationExpires || new Date(user.emailVerificationExpires) <= new Date()) {
+      throw new ValidationError('Verification code has expired. Please request a new verification code.', [
+        { field: 'code', code: 'EXPIRED', message: 'Verification code has expired' },
+      ]);
+    }
+
+    let isMatch = false;
+
+    // Validate 6-digit code if provided
+    if (code && user.emailVerificationCode) {
+      if (user.emailVerificationCode.trim() === code.trim()) {
+        isMatch = true;
+      }
+    }
+
+    // Validate token if provided
+    if (!isMatch && token && user.emailVerificationToken) {
+      const hashed = crypto.createHash('sha256').update(token.trim()).digest('hex');
+      if (crypto.timingSafeEqual(Buffer.from(hashed, 'hex'), Buffer.from(user.emailVerificationToken, 'hex'))) {
+        isMatch = true;
+      }
+    }
+
+    if (!isMatch) {
+      throw new ValidationError('Invalid verification code or link. Please check the code and try again.', [
+        { field: 'code', code: 'INVALID_CODE', message: 'Invalid verification code' },
+      ]);
+    }
+
+    // Mark as verified and clear verification tokens
     let updatedUser = (await userRepository.updateById(user._id.toString(), {
+      isEmailVerified: true,
+      emailVerificationCode: undefined,
+      emailVerificationToken: undefined,
+      emailVerificationExpires: undefined,
       lastLoginAt: new Date(),
     })) || user;
 
     updatedUser = await ensureAdminRole(updatedUser);
 
-    // Sign JWT session token (expiresIn: 30d)
     const secret = process.env.JWT_SECRET || config.JWT_SECRET;
     const sessionToken = jwt.sign(
       {
@@ -310,6 +281,47 @@ export class AuthService {
     return {
       user: updatedUser,
       sessionToken,
+    };
+  }
+
+  /**
+   * 2. Resend 6-digit verification code to user email
+   */
+  async resendVerificationCode(email: string): Promise<{ success: boolean; message: string; devVerificationCode?: string }> {
+    if (!email || !email.includes('@')) {
+      throw new ValidationError('Valid email address is required');
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await userRepository.findByEmail(normalizedEmail);
+
+    if (!user) {
+      // Return success silently to prevent enumeration
+      return { success: true, message: 'If an account exists, a new verification code has been dispatched.' };
+    }
+
+    if (user.isEmailVerified) {
+      return { success: true, message: 'This email is already verified. You can sign in immediately.' };
+    }
+
+    // Generate fresh OTP code and token
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await userRepository.updateById(user._id.toString(), {
+      emailVerificationCode: verificationCode,
+      emailVerificationToken: tokenHash,
+      emailVerificationExpires,
+    });
+
+    await this.dispatchVerificationEmail(user, verificationCode, rawToken);
+
+    return {
+      success: true,
+      message: 'A new 6-digit verification code has been sent to your email.',
+      ...(process.env.NODE_ENV !== 'production' ? { devVerificationCode: verificationCode } : {}),
     };
   }
 
@@ -384,14 +396,14 @@ export class AuthService {
   }
 
   /**
-   * 5. Register user with full name, email and password
+   * 5. Register user with full name, email and password (requires email verification)
    */
   async registerWithPassword(
     name: string,
     email: string,
     password: string,
     termsAccepted: boolean = false
-  ): Promise<AuthSessionResult> {
+  ): Promise<RegisterResult> {
     if (!termsAccepted) {
       throw new ValidationError('You must agree to the Terms of Service and Privacy Policy to create an account', [
         { field: 'termsAccepted', code: 'TERMS_REQUIRED', message: 'Terms and Privacy Policy must be accepted' },
@@ -425,21 +437,27 @@ export class AuthService {
     }
 
     const existingUser = await userRepository.findByEmail(normalizedEmail);
-    if (existingUser && existingUser.passwordHash) {
+    if (existingUser && existingUser.passwordHash && existingUser.isEmailVerified) {
       throw new ValidationError('An account with this email already exists. Please sign in instead.', [
         { field: 'email', code: 'EMAIL_ALREADY_EXISTS', message: 'Account already exists' },
       ]);
     }
 
     const passwordHash = hashPassword(password);
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     let user: IUser;
     if (existingUser) {
-      // User existed without password (e.g., from magic link or OAuth)
       user = (await userRepository.updateById(existingUser._id.toString(), {
         name: name.trim(),
         passwordHash,
-        lastLoginAt: new Date(),
+        isEmailVerified: false,
+        emailVerificationCode: verificationCode,
+        emailVerificationToken: tokenHash,
+        emailVerificationExpires,
       })) || existingUser;
     } else {
       user = await userRepository.create({
@@ -447,27 +465,24 @@ export class AuthService {
         email: normalizedEmail,
         passwordHash,
         role: UserRole.HUNTER,
-        lastLoginAt: new Date(),
+        isEmailVerified: false,
+        emailVerificationCode: verificationCode,
+        emailVerificationToken: tokenHash,
+        emailVerificationExpires,
       });
     }
 
     user = await ensureAdminRole(user);
 
-    const secret = process.env.JWT_SECRET || config.JWT_SECRET;
-    const sessionToken = jwt.sign(
-      {
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
-      },
-      secret,
-      { expiresIn: '30d' }
-    );
+    const devVerificationUrl = await this.dispatchVerificationEmail(user, verificationCode, rawToken);
 
     return {
+      requiresVerification: true,
+      email: user.email,
+      message: 'Please enter the 6-digit verification code sent to your email to activate your account.',
+      devVerificationCode: process.env.NODE_ENV !== 'production' ? verificationCode : undefined,
+      devVerificationUrl: process.env.NODE_ENV !== 'production' ? devVerificationUrl : undefined,
       user,
-      sessionToken,
-      rememberMe: true,
     };
   }
 
@@ -502,6 +517,36 @@ export class AuthService {
         user.banReason ? `Account is banned: ${user.banReason}` : 'Account is banned',
         'ACCOUNT_BANNED'
       );
+    }
+
+    // Verify email enforcement
+    if (user.isEmailVerified === false) {
+      // Automatically send a fresh code if expired or missing
+      if (!user.emailVerificationCode || !user.emailVerificationExpires || new Date(user.emailVerificationExpires) <= new Date()) {
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+        const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await userRepository.updateById(user._id.toString(), {
+          emailVerificationCode: verificationCode,
+          emailVerificationToken: tokenHash,
+          emailVerificationExpires,
+        });
+
+        await this.dispatchVerificationEmail(user, verificationCode, rawToken);
+      }
+
+      throw new AuthenticationError(
+        'Your email address is not verified. Please enter the 6-digit verification code sent to your email.',
+        'EMAIL_NOT_VERIFIED'
+      );
+    }
+
+    // For legacy users created without the isEmailVerified flag, auto-mark verified
+    if (user.isEmailVerified === undefined) {
+      await userRepository.updateById(user._id.toString(), { isEmailVerified: true });
+      user.isEmailVerified = true;
     }
 
     let updatedUser = (await userRepository.updateById(user._id.toString(), {

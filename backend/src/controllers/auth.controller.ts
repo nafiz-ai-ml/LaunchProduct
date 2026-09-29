@@ -50,57 +50,29 @@ function getBackendBaseUrl(req: Request): string {
 
 export class AuthController {
   /**
-   * 1. POST /api/v1/auth/magic-link
+   * 1. POST /api/v1/auth/verify-email
+   * GET /api/v1/auth/verify-email
+   * Verify email using 6-digit OTP code or 1-click token
    */
-  async requestMagicLink(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email } = req.body;
-      const clientIp =
-        (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-        req.ip ||
-        req.socket.remoteAddress ||
-        '127.0.0.1';
+      const email = (req.body?.email || req.query?.email) as string | undefined;
+      const code = (req.body?.code || req.query?.code) as string | undefined;
+      const token = (req.body?.token || req.query?.token) as string | undefined;
 
-      const result = await authService.requestMagicLink(email, clientIp);
-
-      // Security: always return 200 with generic message to prevent email enumeration
-      res.status(200).json({
-        success: true,
-        data: {
-          message: 'If eligible, a login link has been dispatched.',
-          expiresInSeconds: 900,
-          ...(process.env.NODE_ENV !== 'production'
-            ? { devMagicLinkUrl: result.magicLinkUrl, rawToken: result.rawToken }
-            : {}),
-        },
-        meta: getMetadata(req),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * 2. GET /api/v1/auth/verify?token=<token>
-   */
-  async verifyMagicLink(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const token = req.query.token as string;
-      if (!token) {
-        throw new ValidationError('Magic link token is required in query parameters', [
-          { field: 'token', code: 'REQUIRED', message: 'Token query parameter cannot be empty' },
-        ]);
+      if (!code && !token) {
+        throw new ValidationError('A 6-digit verification code or token is required');
       }
 
-      const { user, sessionToken } = await authService.verifyMagicLink(token);
+      const { user, sessionToken } = await authService.verifyEmail(email, code, token);
 
-      // Set HttpOnly, Secure, SameSite=Lax, 30-day signed cookie
-      res.cookie(COOKIE_NAME, sessionToken, getCookieOptions());
+      // Set 30-day HttpOnly cookie
+      res.cookie(COOKIE_NAME, sessionToken, getCookieOptions(30));
 
-      // If requested as JSON (API client), return structured response
       const acceptsJson =
         req.headers.accept?.includes('application/json') ||
-        req.query.format === 'json';
+        req.query?.format === 'json' ||
+        req.method === 'POST';
 
       if (acceptsJson) {
         res.status(200).json({
@@ -108,11 +80,13 @@ export class AuthController {
           data: {
             user: {
               id: user._id.toString(),
+              name: user.name,
               email: user.email,
               role: user.role,
               founderProfile: user.founderProfile,
               createdAt: user.createdAt,
             },
+            sessionToken,
           },
           meta: getMetadata(req),
         });
@@ -120,8 +94,27 @@ export class AuthController {
       }
 
       // Default browser navigation: redirect to frontend dashboard
-      const dashboardUrl = `${getFrontendBaseUrl()}/dashboard`;
+      const dashboardUrl = `${getFrontendBaseUrl()}/dashboard?verified=true`;
       res.redirect(302, dashboardUrl);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 2. POST /api/v1/auth/resend-verification
+   * Resend 6-digit OTP verification code
+   */
+  async resendVerification(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email } = req.body;
+      const result = await authService.resendVerificationCode(email);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        meta: getMetadata(req),
+      });
     } catch (error) {
       next(error);
     }
@@ -386,20 +379,17 @@ export class AuthController {
   async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { name, email, password, termsAccepted } = req.body;
-      const { user, sessionToken } = await authService.registerWithPassword(
+      const result = await authService.registerWithPassword(
         name,
         email,
         password,
         Boolean(termsAccepted)
       );
 
-      // Set 30-day session cookie
-      res.cookie(COOKIE_NAME, sessionToken, getCookieOptions(30));
-
       // Log AUTH_REGISTER activity event
       try {
         await ActivityEvent.create({
-          userId: user._id,
+          userId: result.user._id,
           eventType: 'USER_REGISTERED',
           eventSource: EventSource.INTERNAL,
           metadata: {
@@ -415,15 +405,22 @@ export class AuthController {
       res.status(201).json({
         success: true,
         data: {
+          requiresVerification: result.requiresVerification,
+          email: result.email,
+          message: result.message,
           user: {
-            id: user._id.toString(),
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            founderProfile: user.founderProfile,
-            createdAt: user.createdAt,
+            id: result.user._id.toString(),
+            name: result.user.name,
+            email: result.user.email,
+            role: result.user.role,
+            createdAt: result.user.createdAt,
           },
-          sessionToken,
+          ...(process.env.NODE_ENV !== 'production'
+            ? {
+                devVerificationCode: result.devVerificationCode,
+                devVerificationUrl: result.devVerificationUrl,
+              }
+            : {}),
         },
         meta: getMetadata(req),
       });

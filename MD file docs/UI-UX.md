@@ -1,11 +1,12 @@
 # LaunchProduct — UI/UX Design System Specification (`UI-UX.md`)
 
-**Document Version:** 1.0.0 (Implementation-Ready)  
+**Document Version:** 2.0.0 (Updated Brand Identity & Ultra-Clean System)  
 **Status:** Approved Single Source of Truth  
 **Target Architecture:** Next.js 14+ (App Router) + TypeScript + Tailwind CSS / CSS Variables  
 **Primary Brand:** **LaunchProduct**  
-**Official Typeface:** **Poppins**  
-**Date:** September 21, 2026  
+**Official Typeface:** **Codec Pro** (Pairings: Plus Jakarta Sans, Inter)  
+**Primary Brand Color:** **#ff751f** (Warm Sunset Tangerine)  
+**Date:** September 29, 2026  
 
 ---
 
@@ -86,7 +87,7 @@ LaunchProduct's visual tone is **technical, authoritative, trustworthy, energeti
 | :--- | :--- | :--- |
 | **Trust & Authority** | Crisp geometric borders, high contrast ratios ($\ge 4.5:1$), immutable snapshot badges, clear data attribution. | Shady countdown timers, fake social proof popups, pay-to-win auctions. |
 | **Builder-Centric** | Compact technical information density, structured metadata tags (Tech Stack, Pricing, Category), keyboard shortcuts. | Fluffy marketing buzzwords, childish illustration styles, over-animated meme gifs. |
-| **Growth & Momentum** | Vibrant Electric Blue accents (`#0653FD`), subtle upward movement indicators, active launch counters. | Casino gamification, gambling aesthetic, aggressive coin/token graphics. |
+| **Growth & Momentum** | Vibrant Sunset Tangerine accents (`#ff751f`), subtle upward movement indicators, active launch counters. | Casino gamification, gambling aesthetic, aggressive coin/token graphics. |
 | **Clarity & Focus** | Disciplined whitespace, generous typography line-heights, restrained single-purpose action buttons. | Visual clutter, rainbow color schemes, crowded banner ads, auto-playing media. |
 
 ---
@@ -119,42 +120,38 @@ public/brand/
 
 ### 4.2 Logo Variants & Specific Usage Matrix
 
-| Variant | Filename | Recommended Placement | Min Usable Width | Background Requirement |
+| Variant | Filename / Path | Recommended Placement | Min Usable Width | Background Requirement |
 | :--- | :--- | :--- | :--- | :--- |
-| **Primary Horizontal Logo** | `primary-horizontal.png` | Desktop Top Navigation, Marketing Hero, PDF Invoices, Official Reports | 160px | Light background or White container |
-| **Light Background Logo** | `logo-light.png` | Compact light mode header, emails, marketing sidebars | 120px | Light surfaces (`#FFFFFF` to `#F1F5F9`) |
-| **Dark Background Logo** | `logo-dark.png` | Dark mode top navigation, dark hero sections | 130px | Dark surfaces (`#090D16` to `#1E293B`) |
-| **Wordmark Only** | `wordmark.png` | Footer branding, text-heavy editorial headers | 100px | Clean neutral background |
-| **Icon Only** | `icon.png` | Mobile top bar, collapsible sidebar header, small avatars | 28px | Any contrasting surface |
-| **App Icon** | `app-icon.png` | PWA splash screens, OAuth consent headers, mobile homescreens | 48px | Any surface (has self-contained backing) |
-| **Favicon** | `favicon.png` | Browser tab icon, bookmark bar, URL previews | 16px / 32px | Browser-rendered |
-| **Monochrome Black** | `logo-monochrome-black.png` | High-contrast printing, black-and-white receipts | 100px | High-key white/light gray only |
-| **Monochrome White** | `logo-monochrome-white.png` | High-contrast black print, inverted monochrome contexts | 100px | Deep solid black only |
+| **Light Theme Logo** | `/brand/logo/light_theme_logo.png` | Light mode desktop navigation, white surfaces, export badges | 140px | Light background (`#FFFFFF`, `#FFFBFA`) |
+| **Dark Theme Logo** | `/brand/logo/dark_theme_logo.png` | Dark mode desktop navigation, dark marketing headers | 140px | Dark surfaces (`#000000`, `#0D0C0B`) |
+| **Light Wordmark** | `/brand/logo/light_theme_wordmark_only.png` | Light mode footer branding, clean editorial layouts | 100px | Clean light surface |
+| **Dark Wordmark** | `/brand/logo/dark_theme_wordmark_only.png` | Dark mode footer branding, hero badges | 100px | Dark solid background |
+| **Light Theme Icon** | `/brand/icon/Light Theme Icon Only.png` | Light mode mobile navigation, avatars, compact triggers | 28px | Light surface |
+| **Dark Theme Icon** | `/brand/icon/Dark Theme Icon Only.png` | Dark mode mobile navigation, dark avatars | 28px | Dark surface |
+| **Favicon** | `/brand/favicon/Favicon.png` | Browser tab icon, bookmark bar, URL previews | 32px | Browser-rendered |
 
 ### 4.3 Clear Space & Sizing Rules
 - **Clear Space:** The minimum clear space surrounding any logo instance must equal **50% of the icon height** ($0.5 \times H_{\text{icon}}$) on all four sides. No text, icons, buttons, or container borders may encroach into this perimeter.
 - **Aspect Ratio Locking:** All logo rendering must use `object-fit: contain` with strictly locked aspect ratios. Never apply separate arbitrary CSS `width` and `height` without maintaining the natural ratio.
-- **Vector Notice:** The supplied logo package contains raster PNG assets. When rendering in SVG contexts (such as embed badges or OpenGraph canvas generation), use crisp PNG embedding or maintain explicit high-DPI scaling (`image-rendering: -webkit-optimize-contrast`).
 
 ### 4.4 Prohibited Logo Treatments
 - ❌ **Do not** stretch, skew, compress, or rotate the logo.
 - ❌ **Do not** recolor the logo icon or wordmark with non-brand gradients or fills.
-- ❌ **Do not** add drop shadows, outer glows, neon strokes, or bevel effects to the logo.
+- ❌ **Do not** add heavy drop shadows, neon strokes, or bevel effects to the logo.
 - ❌ **Do not** place the light-background logo onto dark backgrounds or vice-versa.
-- ❌ **Do not** enclose the logo in an awkward contrasting pill or box unless it is a standard floating navigation element.
 
 ---
 
 ## 5. Typography
 
-The official primary typeface for LaunchProduct is **Poppins** (Google Fonts).
+The official primary typeface for LaunchProduct is **Codec Pro**, paired seamlessly with **Plus Jakarta Sans** and **Inter** for optimal rendering across all operating systems.
 
 ### 5.1 Font Family & Fallback Stack
 
 ```css
 /* Official Typeface Definition */
---font-primary: 'Poppins', Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
---font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, "Courier New", monospace;
+--font-primary: 'Codec Pro', 'Plus Jakarta Sans', Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+--font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
 ```
 
 ### 5.2 Type Scale & Hierarchy
@@ -163,9 +160,9 @@ Every text element in LaunchProduct must map to the standardized typographical s
 
 | Level | Size (rem / px) | Weight | Line Height | Letter Spacing | CSS / Tailwind Class | Application |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Display** | 3.5rem (56px) | 700 (Bold) | 1.15 (64px) | -0.025em (-1.4px) | `text-6xl font-bold tracking-tight` | Marketing Hero Headline |
+| **Display** | 3.5rem (56px) | 800 (ExtraBold)| 1.15 (64px) | -0.025em (-1.4px) | `text-5xl sm:text-6xl font-extrabold tracking-tight` | Marketing Hero Headline |
 | **H1** | 2.5rem (40px) | 700 (Bold) | 1.20 (48px) | -0.020em (-0.8px) | `text-4xl font-bold tracking-tight` | Page Titles (Leaderboard, Product Detail) |
-| **H2** | 1.875rem (30px)| 600 (SemiBold)| 1.25 (38px) | -0.015em (-0.45px)| `text-3xl font-semibold tracking-tight` | Section Headers, Dashboard Titles |
+| **H2** | 1.875rem (30px)| 700 (Bold) | 1.25 (38px) | -0.015em (-0.45px)| `text-3xl font-bold tracking-tight` | Section Headers, Dashboard Titles |
 | **H3** | 1.5rem (24px)  | 600 (SemiBold)| 1.30 (32px) | -0.010em (-0.24px)| `text-2xl font-semibold` | Card Titles, Modal Headers, Sub-sections |
 | **H4** | 1.25rem (20px) | 600 (SemiBold)| 1.40 (28px) | 0.000em | `text-xl font-semibold` | Component Group Headers, Table Titles |
 | **Body Large** | 1.125rem (18px)| 400 / 500 | 1.55 (28px) | 0.000em | `text-lg font-normal` | Product Hero Taglines, Lead Paragraphs |
@@ -174,49 +171,50 @@ Every text element in LaunchProduct must map to the standardized typographical s
 | **Caption** | 0.75rem (12px) | 500 (Medium)  | 1.40 (16px) | +0.010em (+0.12px)| `text-xs font-medium` | Timestamps, Metadata, Fine Print |
 | **Button** | 0.875rem (14px)| 600 (SemiBold)| 1.00 (14px) | +0.010em (+0.14px)| `text-sm font-semibold` | Primary & Secondary Button Labels |
 | **Nav Link** | 0.9375rem (15px)| 500 (Medium)| 1.20 (18px) | 0.000em | `text-[15px] font-medium` | Header Navigation Links, Tab Labels |
-| **Ranking Num**| 1.25rem (20px) | 700 (Bold) | 1.00 (20px) | -0.020em | `text-xl font-bold font-mono` | Leaderboard #1-#100 Rank Indicators |
+| **Ranking Num**| 1.25rem (20px) | 800 (ExtraBold)| 1.00 (20px) | -0.020em | `text-xl font-extrabold font-mono` | Leaderboard #1-#100 Rank Indicators |
 
 ---
 
 ## 6. Color System
 
-The LaunchProduct color system is built directly from the authoritative brand logo palette and structured into semantic tokens that support high-contrast light and dark modes.
+The LaunchProduct color system is built directly from the high-energy sunset brand palette and structured into semantic tokens that support high-contrast light and dark modes.
 
 ### 6.1 Brand Identity Colors
 
-- **LaunchProduct Primary Blue:** `#0653FD` (RGB: 6, 83, 253 / HSL: 221°, 98%, 51%) — High-energy electric royal blue representing digital innovation, discovery, and platform momentum.
-- **LaunchProduct Midnight Navy:** `#00214E` (RGB: 0, 33, 78 / HSL: 215°, 100%, 15%) — Authoritative anchor tone representing security, data permanence, and enterprise credibility.
+- **LaunchProduct Sunset Tangerine (Main):** `#ff751f` (RGB: 255, 117, 31 / HSL: 23°, 100%, 56%) — High-energy vibrant amber-orange representing product momentum, innovation, and standout community visibility.
+- **Warm Canvas White:** `#fffbfa` (RGB: 255, 251, 250) — Soft warm cream foundation providing soothing readability, eliminating sterile clinic white.
+- **Obsidian Pitch Black:** `#000000` / `#0D0C0B` (RGB: 13, 12, 11) — Deep rich grounding dark surface representing modern premium depth.
 
 ### 6.2 Semantic Color Tokens (Light & Dark Mode)
 
 ```css
 :root {
-  /* Brand Tokens */
-  --color-primary: #0653FD;
-  --color-primary-hover: #0543D6;
-  --color-primary-active: #0436B0;
-  --color-primary-subtle: #EFF4FF;
-  --color-primary-focus: rgba(6, 83, 253, 0.35);
+  /* Brand Tokens (Warm Sunset Palette) */
+  --color-primary: #ff751f;
+  --color-primary-hover: #e66210;
+  --color-primary-active: #cb520a;
+  --color-primary-subtle: #fff4ed;
+  --color-primary-focus: rgba(255, 117, 31, 0.35);
 
-  --color-secondary: #00214E;
-  --color-secondary-hover: #001737;
+  --color-secondary: #0D0C0B;
+  --color-secondary-hover: #1F1D1B;
 
   /* Surfaces & Backgrounds (Light) */
-  --color-bg: #F8FAFC;               /* Slate-50: Main Canvas */
+  --color-bg: #fffbfa;               /* Warm Cream: Main Canvas */
   --color-surface: #FFFFFF;          /* Pure White: Cards, Panels */
   --color-surface-elevated: #FFFFFF; /* Modals, Menus */
-  --color-surface-sunken: #F1F5F9;   /* Slate-100: Code blocks, wells */
+  --color-surface-sunken: #F7F2EF;   /* Soft warm grey: Code blocks, wells */
 
   /* Text Tokens (Light) */
-  --color-text-primary: #0F172A;     /* Slate-900: High-contrast primary */
-  --color-text-secondary: #475569;   /* Slate-600: Descriptions, subheads */
-  --color-text-muted: #94A3B8;       /* Slate-400: Placeholders, disabled */
+  --color-text-primary: #181513;     /* Near Black: High-contrast primary */
+  --color-text-secondary: #57524E;   /* Warm Stone: Descriptions, subheads */
+  --color-text-muted: #A8A29E;       /* Stone-400: Placeholders, disabled */
   --color-text-inverted: #FFFFFF;    /* Text on primary buttons */
 
   /* Borders & Dividers (Light) */
-  --color-border: #E2E8F0;           /* Slate-200: Default card borders */
-  --color-border-subtle: #F1F5F9;    /* Slate-100: Inner dividers */
-  --color-border-hover: #CBD5E1;     /* Slate-300: Card hover border */
+  --color-border: #EFE8E4;           /* Warm Stone: Default card borders */
+  --color-border-subtle: #F7F2EF;    /* Inner dividers */
+  --color-border-hover: #DDD4CF;     /* Card hover border */
 
   /* Feedback & Status */
   --color-success: #10B981;          /* Emerald-500: Valid votes, claims */
@@ -231,42 +229,42 @@ The LaunchProduct color system is built directly from the authoritative brand lo
   --color-error-bg: #FEF2F2;
   --color-error-border: #FECACA;
 
-  --color-info: #0653FD;             /* Primary blue for info */
-  --color-info-bg: #EFF4FF;
-  --color-info-border: #BFDBFE;
+  --color-info: #ff751f;             /* Sunset orange for info */
+  --color-info-bg: #fff4ed;
+  --color-info-border: #fed7aa;
 
   /* Sponsored / Promotion Demarcation */
-  --color-sponsored-badge: #B45309;  /* Amber-700 */
-  --color-sponsored-bg: #FFFDF5;     /* Warm Amber Tint */
-  --color-sponsored-border: #FCD34D; /* Amber-300 */
+  --color-sponsored-badge: #C2410C;  /* Orange-700 */
+  --color-sponsored-bg: #FFF7ED;     /* Warm Orange Tint */
+  --color-sponsored-border: #FDBA74; /* Orange-300 */
 }
 
 .dark {
   /* Brand Tokens (Dark Mode) */
-  --color-primary: #3B82F6;          /* Tuned for WCAG contrast on black */
-  --color-primary-hover: #2563EB;
-  --color-primary-active: #1D4ED8;
-  --color-primary-subtle: rgba(59, 130, 246, 0.12);
-  --color-primary-focus: rgba(59, 130, 246, 0.40);
+  --color-primary: #ff751f;
+  --color-primary-hover: #ff853a;
+  --color-primary-active: #e66210;
+  --color-primary-subtle: rgba(255, 117, 31, 0.15);
+  --color-primary-focus: rgba(255, 117, 31, 0.40);
 
-  --color-secondary: #00214E;
-  --color-secondary-hover: #032D69;
+  --color-secondary: #FAFAF9;
+  --color-secondary-hover: #E7E5E4;
 
   /* Surfaces & Backgrounds (Dark) */
-  --color-bg: #090D16;               /* Deep Midnight Obsidian */
-  --color-surface: #0F172A;          /* Slate-900: Primary Cards */
-  --color-surface-elevated: #1E293B; /* Slate-800: Modals, Popovers */
-  --color-surface-sunken: #060910;   /* Recessed Wells */
+  --color-bg: #0D0C0B;               /* Deep Obsidian Warm Black */
+  --color-surface: #181615;          /* Warm Charcoal: Primary Cards */
+  --color-surface-elevated: #22201D; /* Modals, Popovers */
+  --color-surface-sunken: #080706;   /* Recessed Wells */
 
   /* Text Tokens (Dark) */
-  --color-text-primary: #F8FAFC;     /* Slate-50 */
-  --color-text-secondary: #94A3B8;   /* Slate-400 */
-  --color-text-muted: #64748B;       /* Slate-500 */
-  --color-text-inverted: #0F172A;
+  --color-text-primary: #FAFAF9;     /* Warm White */
+  --color-text-secondary: #A8A29E;   /* Warm Gray */
+  --color-text-muted: #78716C;       /* Stone-500 */
+  --color-text-inverted: #0D0C0B;
 
   /* Borders & Dividers (Dark) */
-  --color-border: #1E293B;           /* Slate-800 */
-  --color-border-subtle: #141D2E;
+  --color-border: #292524;           /* Warm Dark Border */
+  --color-border-subtle: #1C1917;
   --color-border-hover: #334155;     /* Slate-700 */
 
   /* Feedback & Status (Dark) */
@@ -417,10 +415,10 @@ Buttons represent explicit user intent. They must feature clear state transition
 ### 13.1 Button Variants
 
 1. **Primary Button:**
-   - Background: `var(--color-primary)` (`#0653FD`)
-   - Text: `#FFFFFF`, Font: Poppins SemiBold (600), `14px`
-   - Hover: `var(--color-primary-hover)` (`#0543D6`)
-   - Active: `var(--color-primary-active)` (`#0436B0`)
+   - Background: `var(--color-primary)` (`#ff751f`)
+   - Text: `#FFFFFF`, Font: Codec Pro / Plus Jakarta Sans SemiBold (600), `14px`
+   - Hover: `var(--color-primary-hover)` (`#e66210`)
+   - Active: `var(--color-primary-active)` (`#cb520a`)
    - Focus: `box-shadow: 0 0 0 3px var(--color-primary-focus)`
    - Used for: "Submit Product", "Launch Campaign", "Claim Product".
 
@@ -525,7 +523,7 @@ The VoteButton is the highest-frequency interactive component on the platform.
 └──────────────┘
 
 ┌──────────────┐
-│  ▲  UPVOTED  │  <-- Active State: Primary Blue Fill (#0653FD), White Text
+│  ▲  UPVOTED  │  <-- Active State: Primary Tangerine Fill (#ff751f), White Text
 │     143      │      Subtle brand glow shadow
 └──────────────┘
 ```
@@ -541,7 +539,7 @@ The VoteButton is the highest-frequency interactive component on the platform.
 | :--- | :--- | :--- | :--- |
 | **Rank Badge (#1–#3)** | Gold/Silver/Bronze gradient pill with dark text | 🏆 / 🥇 | Top 3 finishers in immutable daily snapshot |
 | **Rank Badge (#4–#100)**| Slate border, dark text, mono font | `#` | Daily leaderboard ranked finishers |
-| **Verified Founder** | Blue fill (`#0653FD`), white checkmark | CheckCircle2 | Verified domain owner via DNS TXT or HTML tag |
+| **Verified Founder** | Tangerine fill (`#ff751f`), white checkmark | CheckCircle2 | Verified domain owner via DNS TXT or HTML tag |
 | **Sponsored / Boost** | Amber tint (`#FFFBEB`), Amber border (`#FCD34D`), Amber text (`#B45309`) | Sparkles | Paid promotional placement (Dual-engine separation) |
 | **Pricing Chip** | Neutral slate background, text-xs | DollarSign | `Free`, `Freemium`, `Paid`, `Open Source` |
 | **Fraud Status (Admin)**| Green / Yellow / Red / Purple pills | ShieldAlert | `VALID`, `FLAGGED_FOR_REVIEW`, `QUARANTINED`, `REJECTED_BOT` |
@@ -717,13 +715,21 @@ The submission flow employs **progressive disclosure** across a 4-step wizard:
 
 ## 29. Authentication UX
 
-LaunchProduct uses frictionless, passwordless authentication.
+LaunchProduct employs a streamlined, high-integrity dual authentication architecture. Magic link authentication has been permanently deprecated in favor of password-authenticated accounts with mandatory email verification.
 
-- **Methods:**
-  1. **OAuth 2.0:** "Continue with Google" and "Continue with GitHub" (single-click instant login).
-  2. **Magic Link:** Enter email address → Receive 6-digit code or direct login link valid for 15 minutes.
-- **Visual Feedback:** When a magic link is dispatched, display an animated envelope card: "Check your inbox. We sent a sign-in link to `alex@example.com`."
-- **Security Assurance:** Clearly state: *"We never post to your accounts or share your email address."*
+- **Authentication Methods (Strictly 2 Supported Paths):**
+  1. **Method 1: Email + Password with Mandatory Verification:**
+     - User registers with Full Name, Email, Password (min 8 chars), and required acceptance of Terms & Privacy Policy.
+     - Account is created in unverified status (`isEmailVerified: false`).
+     - System dispatches a **6-digit numeric OTP code** and a **1-click activation link** to the user's email inbox via Resend.
+     - User enters the 6-digit OTP code directly on the screen or clicks the email link to activate their account and issue a 30-day JWT session cookie.
+     - Dedicated resend code timer and input formatting with generous letter-spacing (`tracking-[0.4em] font-mono`).
+     - Password recovery available via **Forgot Password** flow with secure, single-use reset tokens.
+  2. **Method 2: Google & GitHub OAuth 2.0:**
+     - Single-click social authentication.
+     - Since emails are verified at the provider level, OAuth accounts are immediately activated (`isEmailVerified: true`).
+- **Visual Feedback:** High-contrast feedback cards for active states, OTP entry, invalid credentials, and success celebrations.
+- **Security Assurance:** Explicit banner: *"We never share your email address or post without authorization."*
 
 ---
 
@@ -765,7 +771,7 @@ Paid promotions must remain **100% transparent and structurally separated** from
 Analytics prioritize **actionable builder metrics** over vanity numbers.
 
 - **Primary Metrics:** Outbound Clicks, Click-Through Rate (CTR), Daily Impressions, Referral Sources.
-- **Charts:** Clean area charts and bar charts rendered with accessible SVG/Canvas elements. The primary metric line uses `#0653FD` with a soft gradient fill below.
+- **Charts:** Clean area charts and bar charts rendered with accessible SVG/Canvas elements. The primary metric line uses `#ff751f` with a soft gradient fill below.
 - **Date Range Selector:** Presets (`Last 24 Hours`, `Last 7 Days`, `Launch Week`, `All Time`).
 - **Privacy Notice:** Display footer disclaimer: *"Analytics are privacy-preserving and deduplicated via 10-minute sliding windows. No personal tracking cookies are placed on your visitors."*
 
@@ -971,15 +977,15 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-poppins)', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ["'Codec Pro'", 'var(--font-jakarta)', 'var(--font-poppins)', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Menlo', 'monospace'],
       },
       colors: {
         brand: {
-          primary: '#0653FD',
-          navy: '#00214E',
-          hover: '#0543D6',
-          active: '#0436B0',
+          primary: '#ff751f',
+          navy: '#0D0C0B',
+          hover: '#e66210',
+          active: '#cb520a',
         },
         bg: 'var(--color-bg)',
         surface: {

@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/brand/Logo';
 import {
-  requestMagicLink,
   loginWithPassword,
   registerWithPassword,
+  verifyEmail,
+  resendVerificationCode,
 } from '@/lib/auth-client';
 import { apiClient } from '@/lib/api-client';
 import {
@@ -22,7 +23,7 @@ import {
   Eye,
   EyeOff,
   User as UserIcon,
-  Sparkles,
+  RotateCw,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -41,7 +42,7 @@ export function AuthModal({
   defaultMode = 'signin',
 }: AuthModalProps) {
   const router = useRouter();
-  const [mode, setMode] = useState<'signin' | 'signup' | 'magic'>(defaultMode);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'verify_otp'>(defaultMode);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -51,6 +52,11 @@ export function AuthModal({
   const [rememberMe, setRememberMe] = useState(true);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // OTP Verification Fields
+  const [otpCode, setOtpCode] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [isResending, setIsResending] = useState(false);
 
   // State
   const [isLoading, setIsLoading] = useState(false);
@@ -77,6 +83,8 @@ export function AuthModal({
       setPassword('');
       setConfirmPassword('');
       setTermsAccepted(false);
+      setOtpCode('');
+      setVerificationEmail('');
       setIsLoading(false);
       setIsSuccess(false);
       setErrorMessage(null);
@@ -119,10 +127,18 @@ export function AuthModal({
       onClose();
       router.refresh();
     } catch (err: any) {
+      const errCode = err?.response?.data?.error?.code;
+      const errMsg = err?.response?.data?.error?.message || err?.message || '';
+
+      if (errCode === 'EMAIL_NOT_VERIFIED' || errMsg.toLowerCase().includes('verif')) {
+        setVerificationEmail(email.trim().toLowerCase());
+        setMode('verify_otp');
+        setErrorMessage('Your email address is not verified yet. We dispatched a 6-digit code to your inbox.');
+        return;
+      }
+
       setErrorMessage(
-        err?.response?.data?.error?.message ||
-        err?.message ||
-        'Invalid email or password. Please try again.'
+        errMsg || 'Invalid email or password. Please try again.'
       );
     } finally {
       setIsLoading(false);
@@ -161,16 +177,8 @@ export function AuthModal({
     setIsLoading(true);
     try {
       await registerWithPassword(name.trim(), email.trim().toLowerCase(), password, termsAccepted);
-      // Sync pending upvote to server
-      try {
-        const pending = localStorage.getItem('pending_upvote');
-        if (pending) {
-          await apiClient.post('/votes', { productId: pending });
-          localStorage.removeItem('pending_upvote');
-        }
-      } catch {}
-      onClose();
-      router.refresh();
+      setVerificationEmail(email.trim().toLowerCase());
+      setMode('verify_otp');
     } catch (err: any) {
       setErrorMessage(
         err?.response?.data?.error?.message ||
@@ -182,32 +190,59 @@ export function AuthModal({
     }
   };
 
-  const handleMagicLink = async (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!termsAccepted) {
-      setErrorMessage('Please accept the Terms of Service and Privacy Policy to continue.');
-      return;
-    }
+    setErrorMessage(null);
 
-    if (!email || !email.includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
+    const cleanCode = otpCode.trim();
+    if (cleanCode.length !== 6) {
+      setErrorMessage('Please enter the 6-digit verification code.');
       return;
     }
 
     setIsLoading(true);
-    setErrorMessage(null);
-
     try {
-      await requestMagicLink(email.trim().toLowerCase());
+      await verifyEmail(verificationEmail || email.trim().toLowerCase(), cleanCode);
+      // Sync pending upvote to server
+      try {
+        const pending = localStorage.getItem('pending_upvote');
+        if (pending) {
+          await apiClient.post('/votes', { productId: pending });
+          localStorage.removeItem('pending_upvote');
+        }
+      } catch {}
       setIsSuccess(true);
+      setTimeout(() => {
+        onClose();
+        router.refresh();
+      }, 700);
     } catch (err: any) {
       setErrorMessage(
         err?.response?.data?.error?.message ||
         err?.message ||
-        'Failed to send magic link. Please check your connection and try again.'
+        'Invalid or expired verification code.'
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    const target = verificationEmail || email.trim().toLowerCase();
+    if (!target) return;
+
+    setIsResending(true);
+    setErrorMessage(null);
+    try {
+      await resendVerificationCode(target);
+    } catch (err: any) {
+      setErrorMessage(
+        err?.response?.data?.error?.message ||
+        err?.message ||
+        'Failed to resend code.'
+      );
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -238,15 +273,19 @@ export function AuthModal({
             <Logo width={140} height={30} />
           </div>
           <h2 className="text-xl font-bold tracking-tight text-text-primary">
-            {mode === 'signup' ? 'Create an Account' : mode === 'signin' ? title : 'Passwordless Magic Link'}
+            {mode === 'signup' ? 'Create an Account' : mode === 'signin' ? title : 'Verify Your Email'}
           </h2>
           <p className="text-xs text-text-secondary max-w-xs mx-auto">
-            {mode === 'signup' ? 'Join LaunchProduct to submit tools and vote.' : subtitle}
+            {mode === 'signup'
+              ? 'Join LaunchProduct to submit tools and vote.'
+              : mode === 'signin'
+              ? subtitle
+              : `Enter the 6-digit code sent to ${verificationEmail || email}`}
           </p>
         </div>
 
         {/* Tabs: Sign In vs Sign Up */}
-        {mode !== 'magic' && (
+        {mode !== 'verify_otp' && (
           <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-bold mb-4">
             <button
               type="button"
@@ -287,31 +326,21 @@ export function AuthModal({
           </div>
         )}
 
-        {/* Success message (for magic link) */}
+        {/* Success message */}
         {isSuccess ? (
           <div className="py-6 text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto border border-emerald-500/20">
               <CheckCircle2 className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-text-primary">Check Your Email</h3>
+            <h3 className="text-base font-bold text-text-primary">Authenticated!</h3>
             <p className="text-xs text-text-secondary">
-              We sent a secure 1-click magic link to <strong className="text-text-primary">{email}</strong>.
+              Redirecting you to your account...
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setIsSuccess(false);
-                setMode('signin');
-              }}
-              className="text-xs text-brand-primary hover:underline font-semibold"
-            >
-              Back to Sign In
-            </button>
           </div>
         ) : (
           <div className="space-y-4">
             {/* Social OAuth Buttons */}
-            {mode !== 'magic' && (
+            {mode !== 'verify_otp' && (
               <>
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
@@ -441,20 +470,6 @@ export function AuthModal({
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Sign In</span>}
                 </button>
-
-                <div className="text-center pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('magic');
-                      setErrorMessage(null);
-                    }}
-                    className="text-[11px] text-text-secondary hover:text-brand-primary transition-colors inline-flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3 h-3 text-amber-500" />
-                    <span>Or sign in with Magic Link</span>
-                  </button>
-                </div>
               </form>
             )}
 
@@ -562,66 +577,59 @@ export function AuthModal({
               </form>
             )}
 
-            {/* Magic Link Form */}
-            {mode === 'magic' && (
-              <form onSubmit={handleMagicLink} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-text-primary mb-1">Email</label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="founder@company.com"
-                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-surface text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/50"
-                    />
+            {/* 6-Digit Email Verification Form */}
+            {mode === 'verify_otp' && (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div className="text-center space-y-1">
+                  <div className="w-10 h-10 rounded-xl bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center mx-auto text-brand-primary">
+                    <ShieldCheck className="w-5 h-5" />
                   </div>
+                  <p className="text-xs text-text-secondary">
+                    Enter the 6-digit code sent to{' '}
+                    <strong className="text-text-primary">{verificationEmail || email}</strong>
+                  </p>
                 </div>
 
-                {/* REQUIRED Terms Checkbox */}
-                <div className="pt-1">
-                  <label className="flex items-start gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      required
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="mt-0.5 w-3.5 h-3.5 rounded border-slate-300 text-brand-primary cursor-pointer"
-                    />
-                    <span className="text-[11px] text-text-secondary leading-tight">
-                      I agree to the{' '}
-                      <Link href="/terms" target="_blank" className="text-brand-primary hover:underline font-semibold">
-                        Terms
-                      </Link>{' '}
-                      and{' '}
-                      <Link href="/privacy" target="_blank" className="text-brand-primary hover:underline font-semibold">
-                        Privacy Policy
-                      </Link>
-                      . <span className="text-red-500 font-bold">*</span>
-                    </span>
-                  </label>
+                <div>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    autoFocus
+                    className="w-full text-center text-xl font-mono tracking-[0.4em] py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-surface text-text-primary font-bold focus:outline-none focus:ring-2 focus:ring-brand-primary/50 shadow-xs"
+                  />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || otpCode.length !== 6}
                   className="w-full py-2.5 px-4 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold shadow-md shadow-brand-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Send Magic Link</span>}
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Activate Account</span>}
                 </button>
 
-                <div className="text-center pt-1">
+                <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-text-secondary">
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={isResending}
+                    className="text-brand-primary hover:underline font-semibold disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <RotateCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
+                    <span>{isResending ? 'Sending...' : 'Resend Code'}</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       setMode('signin');
                       setErrorMessage(null);
                     }}
-                    className="text-[11px] text-text-secondary hover:text-brand-primary"
+                    className="hover:text-text-primary"
                   >
-                    Back to Password Sign In
+                    Back to Sign In
                   </button>
                 </div>
               </form>

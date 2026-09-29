@@ -234,38 +234,38 @@ export default function HomePage() {
 
   return (
     <div className="bg-bg text-text-primary flex flex-col font-sans selection:bg-primary selection:text-white w-full max-w-full overflow-x-clip">
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full max-w-full">
-        {/* Marketplace Hero Banner / Value Prop (Ultra-Sleek Professional Dark Card) */}
-        <section className="relative rounded-2xl bg-[#0B0F19] p-6 sm:p-8 text-white shadow-xl overflow-hidden mb-8 border border-slate-800/80 w-full max-w-full">
-          {/* Subtle cosmic glow overlay */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,rgba(6,83,253,0.22),rgba(255,255,255,0))] pointer-events-none" />
+      {/* Main Container with generous side padding so content never touches screen borders */}
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-8 md:px-10 lg:px-12 xl:px-14 py-8 w-full max-w-full">
+        {/* Marketplace Hero Banner / Value Prop (Warm Obsidian Sunset Card) */}
+        <section className="relative rounded-2xl bg-[#0D0C0B] p-6 sm:p-8 md:p-10 text-white shadow-xl overflow-hidden mb-8 border border-stone-800 w-full max-w-full">
+          {/* Subtle warm sunset glow overlay */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,rgba(255,117,31,0.22),rgba(255,255,255,0))] pointer-events-none" />
           {/* Fine subtle developer grid pattern */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
           
           <div className="relative z-10 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/25 mb-4 backdrop-blur-sm">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/25 mb-4 backdrop-blur-sm">
+              <Sparkles className="w-3.5 h-3.5 text-orange-400" />
               <span>Today&apos;s Featured Product Discovery</span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white leading-tight">
-              Where High-Integrity <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-300">Products Launch</span> &amp; Grow
+              Where High-Integrity <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff751f] via-amber-400 to-[#ff9f43]">Products Launch</span> &amp; Grow
             </h1>
 
-            <p className="mt-3 text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl font-normal">
+            <p className="mt-3 text-xs sm:text-sm text-stone-300 leading-relaxed max-w-xl font-normal">
               Discover vetted AI tools, developer utilities, and indie SaaS startups. Ranked by authentic community engagement with multi-signal anti-fraud protection.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-4">
               <Link
                 href="/submit"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-md shadow-blue-600/25 transition-all duration-200 focus-ring"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff751f] via-amber-500 to-[#ea580c] hover:opacity-95 text-white text-xs sm:text-sm font-semibold shadow-md shadow-orange-500/25 transition-all duration-200 focus-ring"
               >
                 <span>Launch Your Product</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-slate-300">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-stone-300">
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   Anti-Fraud Verified

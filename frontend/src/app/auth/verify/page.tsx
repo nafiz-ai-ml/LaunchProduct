@@ -5,13 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Logo } from '@/components/brand/Logo';
 import { BrandIcon } from '@/components/brand/Icon';
-import { verifyMagicLink } from '@/lib/auth-client';
+import { verifyEmail } from '@/lib/auth-client';
 import { CheckCircle2, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 
 function VerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
+  const emailParam = searchParams.get('email') || undefined;
 
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -27,7 +28,7 @@ function VerifyContent() {
 
     async function doVerify() {
       try {
-        const user = await verifyMagicLink(token!);
+        await verifyEmail(emailParam, undefined, token!);
         if (isMounted) {
           setStatus('success');
           const redirect = searchParams.get('redirect') || '/dashboard';

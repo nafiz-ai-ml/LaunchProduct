@@ -10,7 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-poppins)', 'Poppins', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ["'Codec Pro'", 'var(--font-jakarta)', 'var(--font-poppins)', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
       },
       colors: {
@@ -22,12 +22,12 @@ const config: Config = {
           focus: 'var(--color-primary-focus)',
         },
         brand: {
-          primary: '#0653FD',
-          electric: '#0653FD',
-          hover: '#0543D6',
-          active: '#0436B0',
-          subtle: '#EFF4FF',
-          navy: '#00214E',
+          primary: '#ff751f',
+          electric: '#ff751f',
+          hover: '#e66210',
+          active: '#cb520a',
+          subtle: '#fff4ed',
+          navy: '#0D0C0B',
         },
         bg: 'var(--color-bg)',
         canvas: 'var(--color-bg)', // Backward-compatible canvas alias

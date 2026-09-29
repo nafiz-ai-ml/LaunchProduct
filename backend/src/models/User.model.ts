@@ -24,6 +24,10 @@ export interface IUser {
   passwordHash?: string;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  isEmailVerified: boolean;
+  emailVerificationToken?: string;
+  emailVerificationCode?: string;
+  emailVerificationExpires?: Date;
   role: 'VISITOR' | 'HUNTER' | 'FOUNDER' | 'MODERATOR' | 'ADMIN';
   oauthProviders: IOAuthProvider[];
   founderProfile?: IFounderProfile;
@@ -119,6 +123,22 @@ const UserSchema = new Schema<IUser>(
       default: null,
     },
     resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: {
+      type: String,
+      default: null,
+    },
+    emailVerificationCode: {
+      type: String,
+      default: null,
+    },
+    emailVerificationExpires: {
       type: Date,
       default: null,
     },

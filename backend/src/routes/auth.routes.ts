@@ -8,40 +8,53 @@ import { requireAuth, optionalAuth } from '../middleware/auth.middleware';
 const router = Router();
 
 // Validation Schemas
-const magicLinkBodySchema = z.object({
+const verifyEmailSchema = z.object({
+  email: z.string().trim().email().optional(),
+  code: z.string().trim().optional(),
+  token: z.string().trim().optional(),
+});
+
+const resendVerificationSchema = z.object({
   email: z
     .string({ required_error: 'Email is required' })
     .trim()
     .email('Invalid email address format'),
 });
 
-const verifyQuerySchema = z.object({
-  token: z
-    .string({ required_error: 'Verification token is required' })
-    .min(1, 'Token cannot be empty'),
-  format: z.string().optional(),
-});
-
 /**
- * 1. POST /api/v1/auth/magic-link
- * Request passwordless magic link email.
- * Guarded by magicLinkRateLimit (5 req/hour) & input validation.
+ * 1. POST /api/v1/auth/verify-email
+ * Verify user email with 6-digit OTP code or 1-click token
  */
 router.post(
-  '/magic-link',
-  magicLinkRateLimit,
-  validate(magicLinkBodySchema, 'body'),
-  (req, res, next) => authController.requestMagicLink(req, res, next)
+  '/verify-email',
+  validate(verifyEmailSchema, 'body'),
+  (req, res, next) => authController.verifyEmail(req, res, next)
 );
 
 /**
- * 2. GET /api/v1/auth/verify?token=<token>
- * Verify token from magic link email, set session cookie, and redirect to dashboard.
+ * 2. GET /api/v1/auth/verify-email
+ * 1-click email verification via query parameters (?token=...&email=...)
  */
-router.get(
-  '/verify',
-  validate(verifyQuerySchema, 'query'),
-  (req, res, next) => authController.verifyMagicLink(req, res, next)
+router.get('/verify-email', (req, res, next) =>
+  authController.verifyEmail(req, res, next)
+);
+
+/**
+ * Legacy /verify redirect for backward compatibility
+ */
+router.get('/verify', (req, res, next) =>
+  authController.verifyEmail(req, res, next)
+);
+
+/**
+ * 3. POST /api/v1/auth/resend-verification
+ * Resend 6-digit OTP email verification code
+ */
+router.post(
+  '/resend-verification',
+  magicLinkRateLimit,
+  validate(resendVerificationSchema, 'body'),
+  (req, res, next) => authController.resendVerification(req, res, next)
 );
 
 /**

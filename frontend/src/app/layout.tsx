@@ -1,11 +1,20 @@
+import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { Poppins } from 'next/font/google';
+import { Plus_Jakarta_Sans, Poppins } from 'next/font/google';
 import './globals.css';
 import '@/styles/globals.css';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
+import { TopProgressBar } from '@/components/layout/TopProgressBar';
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-jakarta',
+  display: 'swap',
+});
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -50,10 +59,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/brand/favicon/favicon.png', sizes: '512x512', type: 'image/png' },
+      { url: '/brand/favicon/Favicon.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: '/brand/icon/app-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/brand/icon/Light%20Theme%20Icon%20Only.png', sizes: '180x180', type: 'image/png' },
     ],
   },
 };
@@ -64,9 +73,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={poppins.variable} suppressHydrationWarning>
-      <body className="min-h-screen bg-bg text-text-primary antialiased selection:bg-brand-primary selection:text-white flex flex-col font-sans max-w-full w-full">
+    <html lang="en" className={`${jakarta.variable} ${poppins.variable}`} suppressHydrationWarning>
+      <body className="min-h-screen bg-bg text-text-primary antialiased selection:bg-primary selection:text-white flex flex-col font-sans max-w-full w-full">
         <ThemeProvider>
+          <Suspense fallback={null}>
+            <TopProgressBar />
+          </Suspense>
           <Navbar />
           <div className="flex-1 w-full max-w-full">
             {children}
@@ -78,3 +90,4 @@ export default function RootLayout({
     </html>
   );
 }
+

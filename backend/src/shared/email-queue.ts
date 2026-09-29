@@ -3,20 +3,22 @@ import { bullMQRedisConnection, logQueueErrorOnce } from './redis';
 import { logger } from './logger';
 
 export type EmailJobType =
-  | 'MAGIC_LINK'
+  | 'EMAIL_VERIFICATION'
+  | 'send-verification-email'
   | 'PRODUCT_APPROVED'
   | 'PRODUCT_REJECTED'
   | 'CAMPAIGN_ACTIVATED'
   | 'OWNERSHIP_VERIFIED'
   | 'SECURITY_ALERT'
   | 'CAMPAIGN_EXPIRED'
-  | 'send-magic-link'
   | 'send-campaign-activated'
   | 'send-notification';
 
 export interface EmailJobPayload {
   type?: EmailJobType | string;
   to: string;
+  verificationCode?: string;
+  verificationUrl?: string;
   magicLinkUrl?: string;
   expiresInMinutes?: number;
   productName?: string;

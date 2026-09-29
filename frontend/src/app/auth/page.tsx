@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/brand/Logo';
 import {
-  requestMagicLink,
   registerWithPassword,
+  verifyEmail,
+  resendVerificationCode,
   loginWithPassword,
   forgotPassword,
 } from '@/lib/auth-client';
@@ -15,7 +16,6 @@ import {
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
-  Sparkles,
   AlertCircle,
   Loader2,
   ArrowLeft,
@@ -28,13 +28,14 @@ import {
   EyeOff,
   User as UserIcon,
   KeyRound,
+  RotateCw,
 } from 'lucide-react';
 
 export default function AuthPage() {
   const router = useRouter();
 
-  // Mode: 'signin' | 'signup' | 'forgot' | 'magic'
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot' | 'magic'>('signin');
+  // Mode: 'signin' | 'signup' | 'forgot' | 'verify_otp'
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot' | 'verify_otp'>('signin');
 
   // Form Fields
   const [name, setName] = useState('');
@@ -45,11 +46,17 @@ export default function AuthPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // OTP Verification Fields
+  const [otpCode, setOtpCode] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [isResending, setIsResending] = useState(false);
+
   // Status
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [devMagicLink, setDevMagicLink] = useState<string | null>(null);
+  const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
+  const [devVerificationUrl, setDevVerificationUrl] = useState<string | null>(null);
   const [devResetLink, setDevResetLink] = useState<string | null>(null);
 
   // Social OAuth Redirection
@@ -83,10 +90,18 @@ export default function AuthPage() {
         : '/dashboard';
       router.push(redirect);
     } catch (err: any) {
+      const errCode = err?.response?.data?.error?.code;
+      const errMsg = err?.response?.data?.error?.message || err?.message || '';
+
+      if (errCode === 'EMAIL_NOT_VERIFIED' || errMsg.toLowerCase().includes('verif')) {
+        setVerificationEmail(email.trim().toLowerCase());
+        setAuthMode('verify_otp');
+        setErrorMessage('Your email address is not verified yet. We have dispatched a 6-digit code to your inbox.');
+        return;
+      }
+
       setErrorMessage(
-        err?.response?.data?.error?.message ||
-        err?.message ||
-        'Invalid email or password. Please try again or use Forgot Password.'
+        errMsg || 'Invalid email or password. Please try again or use Forgot Password.'
       );
     } finally {
       setIsLoading(false);
@@ -126,11 +141,16 @@ export default function AuthPage() {
 
     setIsLoading(true);
     try {
-      await registerWithPassword(name.trim(), email.trim().toLowerCase(), password, termsAccepted);
-      const redirect = typeof window !== 'undefined'
-        ? new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
-        : '/dashboard';
-      router.push(redirect);
+      const res = await registerWithPassword(name.trim(), email.trim().toLowerCase(), password, termsAccepted);
+      setVerificationEmail(email.trim().toLowerCase());
+      if (res?.devVerificationCode) {
+        setDevOtpCode(res.devVerificationCode);
+      }
+      if (res?.devVerificationUrl) {
+        setDevVerificationUrl(res.devVerificationUrl);
+      }
+      setAuthMode('verify_otp');
+      setSuccessMessage('Account registered! Enter the 6-digit code sent to your email to activate.');
     } catch (err: any) {
       setErrorMessage(
         err?.response?.data?.error?.message ||
@@ -139,6 +159,66 @@ export default function AuthPage() {
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Verify 6-Digit OTP Code
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const cleanCode = otpCode.trim();
+    if (cleanCode.length !== 6) {
+      setErrorMessage('Please enter the complete 6-digit verification code.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await verifyEmail(verificationEmail || email.trim().toLowerCase(), cleanCode);
+      setSuccessMessage('Email verified successfully! Taking you to your dashboard...');
+      const redirect = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
+        : '/dashboard';
+      setTimeout(() => {
+        router.push(redirect);
+      }, 700);
+    } catch (err: any) {
+      setErrorMessage(
+        err?.response?.data?.error?.message ||
+        err?.message ||
+        'Invalid or expired verification code. Please check and try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Resend OTP Code
+  const handleResendOtp = async () => {
+    const target = verificationEmail || email.trim().toLowerCase();
+    if (!target) {
+      setErrorMessage('Email address is missing.');
+      return;
+    }
+
+    setIsResending(true);
+    setErrorMessage(null);
+    try {
+      const res = await resendVerificationCode(target);
+      if (res?.devVerificationCode) {
+        setDevOtpCode(res.devVerificationCode);
+      }
+      setSuccessMessage(res?.message || 'A fresh 6-digit verification code has been dispatched.');
+    } catch (err: any) {
+      setErrorMessage(
+        err?.response?.data?.error?.message ||
+        err?.message ||
+        'Failed to resend verification code. Please try again.'
+      );
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -165,47 +245,6 @@ export default function AuthPage() {
         err?.response?.data?.error?.message ||
         err?.message ||
         'Failed to request password reset. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Request Magic Link
-  const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-
-    if (!termsAccepted) {
-      setErrorMessage('Please accept the Terms of Service and Privacy Policy to continue.');
-      return;
-    }
-
-    if (!email || !email.includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const res = await requestMagicLink(email.trim().toLowerCase());
-      if (res?.devMagicLinkUrl || res?.rawToken) {
-        let redirectParam: string | null = null;
-        if (typeof window !== 'undefined') {
-          redirectParam = new URLSearchParams(window.location.search).get('redirect');
-        }
-        const base = res.devMagicLinkUrl || `/auth/verify?token=${res.rawToken}`;
-        const finalUrl = redirectParam
-          ? `${base}${base.includes('?') ? '&' : '?'}redirect=${encodeURIComponent(redirectParam)}`
-          : base;
-        setDevMagicLink(finalUrl);
-      }
-      setSuccessMessage('Secure magic link dispatched to your inbox! Check your email to sign in.');
-    } catch (err: any) {
-      setErrorMessage(
-        err?.response?.data?.error?.message ||
-        err?.message ||
-        'Failed to send magic link. Please check your connection and try again.'
       );
     } finally {
       setIsLoading(false);
@@ -307,7 +346,7 @@ export default function AuthPage() {
 
         <div className="my-auto max-w-md w-full mx-auto space-y-4 py-2">
           {/* Main Primary Tabs: Sign In vs Sign Up */}
-          {authMode !== 'forgot' && (
+          {authMode !== 'forgot' && authMode !== 'verify_otp' && (
             <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-bold">
               <button
                 type="button"
@@ -317,7 +356,7 @@ export default function AuthPage() {
                   setSuccessMessage(null);
                 }}
                 className={`py-2 rounded-lg transition-all text-center ${
-                  authMode === 'signin' || authMode === 'magic'
+                  authMode === 'signin'
                     ? 'bg-white dark:bg-slate-900 text-brand-primary shadow-xs'
                     : 'text-text-secondary hover:text-text-primary'
                 }`}
@@ -348,13 +387,13 @@ export default function AuthPage() {
               {authMode === 'signup' && 'Create Your Account'}
               {authMode === 'signin' && 'Welcome Back'}
               {authMode === 'forgot' && 'Reset Your Password'}
-              {authMode === 'magic' && 'Passwordless Magic Link'}
+              {authMode === 'verify_otp' && 'Verify Your Email'}
             </h2>
             <p className="text-xs text-text-secondary mt-0.5">
               {authMode === 'signup' && 'Join LaunchProduct to submit tools, verify traction, and compete.'}
               {authMode === 'signin' && 'Sign in to access your products, voting credentials, and dashboard.'}
               {authMode === 'forgot' && 'Enter your email address to receive a secure password recovery link.'}
-              {authMode === 'magic' && 'We will send a 1-click passwordless login link to your inbox.'}
+              {authMode === 'verify_otp' && `Enter the 6-digit code dispatched to ${verificationEmail || email}.`}
             </p>
           </div>
 
@@ -389,18 +428,19 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {/* Dev instant magic link shortcut */}
-              {devMagicLink && (
+              {/* Dev instant OTP shortcut */}
+              {devOtpCode && (
                 <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60">
                   <p className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-200 mb-1">
-                    Development 1-Click Login Shortcut:
+                    Development 6-Digit Verification Code:
                   </p>
-                  <Link
-                    href={devMagicLink}
-                    className="text-xs text-brand-primary underline break-all font-mono hover:opacity-80"
+                  <button
+                    type="button"
+                    onClick={() => setOtpCode(devOtpCode)}
+                    className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-brand-primary/10 text-brand-primary border border-brand-primary/30 hover:bg-brand-primary/20 transition-colors"
                   >
-                    Open Magic Link &rarr;
-                  </Link>
+                    Click to Auto-fill Code: {devOtpCode}
+                  </button>
                 </div>
               )}
             </div>
@@ -560,20 +600,6 @@ export default function AuthPage() {
                 )}
               </button>
 
-              {/* Magic Link Alternative Button */}
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('magic');
-                    setErrorMessage(null);
-                  }}
-                  className="text-xs text-text-secondary hover:text-brand-primary transition-colors inline-flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Or sign in with 1-click passwordless Magic Link</span>
-                </button>
-              </div>
             </form>
           )}
 
@@ -762,80 +788,94 @@ export default function AuthPage() {
           )}
 
           {/* ========================================= */}
-          {/* TAB 4: PASSWORDLESS MAGIC LINK            */}
+          {/* TAB 4: 6-DIGIT EMAIL VERIFICATION         */}
           {/* ========================================= */}
-          {authMode === 'magic' && (
-            <form onSubmit={handleMagicLink} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-text-primary mb-1">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="founder@company.com"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-surface text-xs text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all shadow-xs"
-                  />
+          {authMode === 'verify_otp' && (
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="text-center space-y-1">
+                <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center mx-auto text-brand-primary mb-2">
+                  <ShieldCheck className="w-6 h-6" />
                 </div>
-              </div>
-
-              {/* REQUIRED Terms Checkbox */}
-              <div className="pt-1">
-                <label className="flex items-start gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    required
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    className="mt-0.5 w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-700 text-brand-primary focus:ring-brand-primary/50 cursor-pointer"
-                  />
-                  <span className="text-[11px] text-text-secondary leading-tight">
-                    I agree to the{' '}
-                    <Link href="/terms" target="_blank" className="text-brand-primary hover:underline font-semibold">
-                      Terms of Service
-                    </Link>{' '}
-                    and{' '}
-                    <Link href="/privacy" target="_blank" className="text-brand-primary hover:underline font-semibold">
-                      Privacy Policy
-                    </Link>
-                    . <span className="text-red-500 font-bold">*</span>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  We sent a 6-digit verification code to{' '}
+                  <span className="font-semibold text-text-primary">
+                    {verificationEmail || email}
                   </span>
-                </label>
+                  . Enter it below to activate your account.
+                </p>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-text-primary mb-1 text-center">
+                  Enter 6-Digit Code
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  autoFocus
+                  className="w-full text-center text-2xl font-mono tracking-[0.4em] py-3 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-surface text-text-primary font-bold focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary shadow-xs"
+                />
+              </div>
+
+              {/* Dev instant OTP auto-fill button */}
+              {devOtpCode && (
+                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 text-left">
+                  <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                    Development Auto-Fill Code:
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setOtpCode(devOtpCode)}
+                    className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-brand-primary text-white hover:bg-brand-hover transition-colors"
+                  >
+                    Click to Insert Code: {devOtpCode}
+                  </button>
+                </div>
+              )}
+
+              {/* Submit Verification Button */}
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || otpCode.length !== 6}
                 className="w-full py-2.5 px-4 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold shadow-md shadow-brand-primary/25 hover:shadow-brand-primary/35 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Generating Secure Link...</span>
+                    <span>Verifying Code...</span>
                   </>
                 ) : (
                   <>
-                    <span>Send Magic Link</span>
+                    <span>Verify &amp; Activate Account</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
 
-              <div className="text-center pt-1">
+              <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-text-secondary">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={isResending}
+                  className="text-brand-primary hover:underline font-semibold disabled:opacity-50 flex items-center gap-1"
+                >
+                  <RotateCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
+                  <span>{isResending ? 'Resending...' : 'Resend Code'}</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setAuthMode('signin');
                     setErrorMessage(null);
+                    setSuccessMessage(null);
                   }}
-                  className="text-xs text-text-secondary hover:text-brand-primary transition-colors inline-flex items-center gap-1.5 font-medium"
+                  className="hover:text-text-primary transition-colors"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Password Sign In</span>
+                  Back to Sign In
                 </button>
               </div>
             </form>

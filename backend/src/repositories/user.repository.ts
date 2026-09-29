@@ -70,6 +70,7 @@ export class UserRepository {
     user = await this.findByEmail(email);
     if (user) {
       await User.findByIdAndUpdate(user._id, {
+        $set: { isEmailVerified: true },
         $push: {
           oauthProviders: {
             provider,
@@ -84,6 +85,7 @@ export class UserRepository {
     // 3. Create fresh user
     return this.create({
       email,
+      isEmailVerified: true,
       oauthProviders: [
         {
           provider,
@@ -101,6 +103,16 @@ export class UserRepository {
     return User.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpires: { $gt: new Date() },
+    }).lean<IUser>().exec();
+  }
+
+  /**
+   * Find a user with active unexpired verification token
+   */
+  async findByVerificationToken(hashedToken: string): Promise<IUser | null> {
+    return User.findOne({
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: { $gt: new Date() },
     }).lean<IUser>().exec();
   }
 }

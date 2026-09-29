@@ -57,15 +57,15 @@ export function renderEmailTemplate(
 
   const buttonStyles = `
     display: inline-block;
-    background: #4f46e5;
+    background: #ff751f;
     color: #ffffff !important;
     font-weight: 600;
     font-size: 15px;
     padding: 12px 28px;
     border-radius: 8px;
     text-decoration: none;
-    margin: 24px 0 16px 0;
-    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+    margin: 16px 0;
+    box-shadow: 0 2px 4px rgba(255, 117, 31, 0.3);
   `;
 
   const wrapTemplate = (title: string, contentHtml: string): string => `
@@ -80,7 +80,7 @@ export function renderEmailTemplate(
       <div style="${containerStyles}">
         <div style="${headerStyles}">
           <div style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.025em; display: flex; align-items: center;">
-            <span style="display: inline-block; width: 10px; height: 10px; background: #6366f1; border-radius: 50%; margin-right: 10px;"></span>
+            <span style="display: inline-block; width: 10px; height: 10px; background: #ff751f; border-radius: 50%; margin-right: 10px;"></span>
             ${brandName}
           </div>
         </div>
@@ -97,26 +97,28 @@ export function renderEmailTemplate(
   `;
 
   switch (type) {
-    case 'MAGIC_LINK':
-    case 'send-magic-link': {
-      const subject = `Your ${brandName} Sign-In Link`;
+    case 'EMAIL_VERIFICATION':
+    case 'send-verification-email': {
+      const subject = `Verify your email for ${brandName}`;
       const expiresIn = payload.expiresInMinutes || 15;
       const html = wrapTemplate(
         subject,
         `
-        <h2 style="font-size: 22px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 12px;">Sign in to ${brandName}</h2>
-        <p style="font-size: 15px; line-height: 1.6; color: #475569; margin: 0 0 16px 0;">
-          Welcome! Click the button below to authenticate into your LaunchProduct account. For your security, this link expires in <strong>${expiresIn} minutes</strong>.
+        <h2 style="font-size: 22px; font-weight: 700; color: #181513; margin-top: 0; margin-bottom: 12px;">Welcome to ${brandName}!</h2>
+        <p style="font-size: 15px; line-height: 1.6; color: #57524E; margin: 0 0 16px 0;">
+          Thank you for creating an account. Please verify your email address to access your founder workspace, upvote products, and launch your projects.
         </p>
-        <div style="text-align: center;">
-          <a href="${payload.magicLinkUrl}" style="${buttonStyles}" target="_blank">Sign In to LaunchProduct</a>
+        <div style="text-align: center; margin: 24px 0;">
+          <p style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #8C847E; margin-bottom: 8px;">Your 6-Digit Verification Code</p>
+          <div style="display: inline-block; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #ff751f; background: #fff4ed; padding: 14px 28px; border-radius: 12px; border: 2px dashed #ff751f;">
+            ${payload.verificationCode}
+          </div>
         </div>
-        <p style="font-size: 13px; color: #94a3b8; margin: 20px 0 0 0;">
-          Or copy and paste this URL into your browser:<br>
-          <a href="${payload.magicLinkUrl}" style="color: #6366f1; word-break: break-all;">${payload.magicLinkUrl}</a>
-        </p>
-        <p style="font-size: 13px; color: #94a3b8; margin: 24px 0 0 0; border-top: 1px solid #f1f5f9; padding-top: 16px;">
-          If you didn't request this email, you can safely disregard it. Your account remains secure.
+        <div style="text-align: center; margin-top: 20px;">
+          <a href="${payload.verificationUrl}" style="${buttonStyles}" target="_blank">Verify Email Directly</a>
+        </div>
+        <p style="font-size: 13px; color: #8C847E; margin: 24px 0 0 0; border-top: 1px solid #EFE8E4; padding-top: 16px;">
+          This code expires in <strong>${expiresIn} minutes</strong>. If you did not create a LaunchProduct account, you can safely ignore this email.
         </p>
         `
       );

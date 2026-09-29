@@ -44,32 +44,32 @@ html, body {
 }
 
 :root {
-  /* Brand Tokens */
-  --color-primary: #0653FD;
-  --color-primary-hover: #0543D6;
-  --color-primary-active: #0436B0;
-  --color-primary-subtle: #EFF4FF;
-  --color-primary-focus: rgba(6, 83, 253, 0.35);
+  /* Brand Tokens (Warm Sunset Palette) */
+  --color-primary: #ff751f;
+  --color-primary-hover: #e66210;
+  --color-primary-active: #cb520a;
+  --color-primary-subtle: #fff4ed;
+  --color-primary-focus: rgba(255, 117, 31, 0.35);
 
-  --color-secondary: #00214E;
-  --color-secondary-hover: #001737;
+  --color-secondary: #0D0C0B;
+  --color-secondary-hover: #1F1D1B;
 
   /* Surfaces & Backgrounds (Light) */
-  --color-bg: #F8FAFC;               /* Slate-50: Main Canvas */
+  --color-bg: #fffbfa;               /* Warm Cream: Main Canvas */
   --color-surface: #FFFFFF;          /* Pure White: Cards, Panels */
   --color-surface-elevated: #FFFFFF; /* Modals, Menus */
-  --color-surface-sunken: #F1F5F9;   /* Slate-100: Code blocks, wells */
+  --color-surface-sunken: #F7F2EF;   /* Soft warm grey: Code blocks, wells */
 
   /* Text Tokens (Light) */
-  --color-text-primary: #0F172A;     /* Slate-900: High-contrast primary */
-  --color-text-secondary: #475569;   /* Slate-600: Descriptions, subheads */
-  --color-text-muted: #94A3B8;       /* Slate-400: Placeholders, disabled */
+  --color-text-primary: #181513;     /* Near Black: High-contrast primary */
+  --color-text-secondary: #57524E;   /* Warm Stone: Descriptions, subheads */
+  --color-text-muted: #8C847E;       /* Stone-400: Placeholders, disabled */
   --color-text-inverted: #FFFFFF;    /* Text on primary buttons */
 
   /* Borders & Dividers (Light) */
-  --color-border: #E2E8F0;           /* Slate-200: Default card borders */
-  --color-border-subtle: #F1F5F9;    /* Slate-100: Inner dividers */
-  --color-border-hover: #CBD5E1;     /* Slate-300: Card hover border */
+  --color-border: #EFE8E4;           /* Warm Stone: Default card borders */
+  --color-border-subtle: #F7F2EF;    /* Inner dividers */
+  --color-border-hover: #DDD4CF;     /* Card hover border */
 
   /* Feedback & Status */
   --color-success: #10B981;          /* Emerald-500: Valid votes, claims */
@@ -84,42 +84,42 @@ html, body {
   --color-error-bg: #FEF2F2;
   --color-error-border: #FECACA;
 
-  --color-info: #0653FD;             /* Primary blue for info */
-  --color-info-bg: #EFF4FF;
-  --color-info-border: #BFDBFE;
+  --color-info: #ff751f;             /* Sunset orange for info */
+  --color-info-bg: #fff4ed;
+  --color-info-border: #fed7aa;
 
   /* Sponsored / Promotion Demarcation */
-  --color-sponsored-badge: #B45309;  /* Amber-700 */
-  --color-sponsored-bg: #FFFDF5;     /* Warm Amber Tint */
-  --color-sponsored-border: #FCD34D; /* Amber-300 */
+  --color-sponsored-badge: #C2410C;  /* Orange-700 */
+  --color-sponsored-bg: #FFF7ED;     /* Warm Orange Tint */
+  --color-sponsored-border: #FDBA74; /* Orange-300 */
 }
 
 .dark {
   /* Brand Tokens (Dark Mode) */
-  --color-primary: #3B82F6;          /* Tuned for WCAG contrast on black */
-  --color-primary-hover: #2563EB;
-  --color-primary-active: #1D4ED8;
-  --color-primary-subtle: rgba(59, 130, 246, 0.12);
-  --color-primary-focus: rgba(59, 130, 246, 0.40);
+  --color-primary: #ff751f;
+  --color-primary-hover: #ff853a;
+  --color-primary-active: #e66210;
+  --color-primary-subtle: rgba(255, 117, 31, 0.15);
+  --color-primary-focus: rgba(255, 117, 31, 0.40);
 
-  --color-secondary: #00214E;
-  --color-secondary-hover: #032D69;
+  --color-secondary: #FAFAF9;
+  --color-secondary-hover: #E7E5E4;
 
   /* Surfaces & Backgrounds (Dark) */
-  --color-bg: #090D16;               /* Deep Midnight Obsidian */
-  --color-surface: #0F172A;          /* Slate-900: Primary Cards */
-  --color-surface-elevated: #1E293B; /* Slate-800: Modals, Popovers */
-  --color-surface-sunken: #060910;   /* Recessed Wells */
+  --color-bg: #0D0C0B;               /* Deep Obsidian Warm Black */
+  --color-surface: #181615;          /* Warm Charcoal: Primary Cards */
+  --color-surface-elevated: #22201D; /* Modals, Popovers */
+  --color-surface-sunken: #080706;   /* Recessed Wells */
 
   /* Text Tokens (Dark) */
-  --color-text-primary: #F8FAFC;     /* Slate-50 */
-  --color-text-secondary: #94A3B8;   /* Slate-400 */
-  --color-text-muted: #64748B;       /* Slate-500 */
-  --color-text-inverted: #0F172A;
+  --color-text-primary: #FAFAF9;     /* Warm White */
+  --color-text-secondary: #A8A29E;   /* Warm Gray */
+  --color-text-muted: #78716C;       /* Stone-500 */
+  --color-text-inverted: #0D0C0B;
 
   /* Borders & Dividers (Dark) */
-  --color-border: #1E293B;           /* Slate-800 */
-  --color-border-subtle: #141D2E;
+  --color-border: #292524;           /* Warm Dark Border */
+  --color-border-subtle: #1C1917;
   --color-border-hover: #334155;     /* Slate-700 */
 
   /* Feedback & Status (Dark) */
@@ -135,14 +135,14 @@ html, body {
   --color-error-bg: rgba(239, 68, 68, 0.12);
   --color-error-border: rgba(239, 68, 68, 0.30);
 
-  --color-info: #3B82F6;
-  --color-info-bg: rgba(59, 130, 246, 0.12);
-  --color-info-border: rgba(59, 130, 246, 0.30);
+  --color-info: #ff751f;
+  --color-info-bg: rgba(255, 117, 31, 0.15);
+  --color-info-border: rgba(255, 117, 31, 0.30);
 
   /* Sponsored / Promotion Demarcation (Dark) */
   --color-sponsored-badge: #FBBF24;
-  --color-sponsored-bg: rgba(245, 158, 11, 0.06);
-  --color-sponsored-border: rgba(245, 158, 11, 0.25);
+  --color-sponsored-bg: rgba(255, 117, 31, 0.08);
+  --color-sponsored-border: rgba(255, 117, 31, 0.30);
 }
 
 html {
@@ -152,7 +152,7 @@ html {
 body {
   background-color: var(--color-bg);
   color: var(--color-text-primary);
-  font-family: var(--font-poppins), 'Poppins', 'Inter', system-ui, sans-serif;
+  font-family: 'Codec Pro', var(--font-jakarta), var(--font-poppins), 'Inter', system-ui, -apple-system, sans-serif;
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
