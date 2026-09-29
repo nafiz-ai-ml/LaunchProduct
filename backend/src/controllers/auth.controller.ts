@@ -527,57 +527,6 @@ export class AuthController {
       next(error);
     }
   }
-
-  /**
-   * 11. POST /api/v1/auth/claim-admin
-   * Allows user to promote their account to ADMIN via session or email
-   */
-  async claimAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const emailFromBody = req.body?.email;
-      let user: IUser;
-
-      if (req.user?.userId) {
-        user = await authService.claimAdmin(req.user.userId);
-      } else if (emailFromBody && typeof emailFromBody === 'string') {
-        user = await authService.claimAdminByEmail(emailFromBody);
-      } else {
-        throw new ValidationError('User identification required. Please provide email in request body or authenticate.');
-      }
-
-      // Generate a fresh session token reflecting ADMIN role
-      const secret = process.env.JWT_SECRET || config.JWT_SECRET;
-      const sessionToken = jwt.sign(
-        {
-          userId: user._id.toString(),
-          email: user.email,
-          role: user.role,
-        },
-        secret,
-        { expiresIn: '30d' }
-      );
-
-      // Set cookie as well
-      res.cookie(COOKIE_NAME, sessionToken, getCookieOptions());
-
-      res.status(200).json({
-        success: true,
-        data: {
-          message: 'Successfully promoted to ADMIN role',
-          user: {
-            id: user._id.toString(),
-            email: user.email,
-            role: user.role,
-            name: user.name,
-          },
-          sessionToken,
-        },
-        meta: getMetadata(req),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
 }
 
 export const authController = new AuthController();

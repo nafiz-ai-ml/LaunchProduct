@@ -16,7 +16,8 @@ function normalizeEmailForAdmin(email: string): string {
 }
 
 /**
- * Ensures user is promoted to ADMIN if listed in ADMIN_EMAILS or matches founder email
+ * Ensures user is promoted to ADMIN if strictly listed in ADMIN_EMAILS or matches owner email.
+ * Demotes any unauthorized user claiming ADMIN role.
  */
 export async function ensureAdminRole(user: IUser): Promise<IUser> {
   try {
@@ -27,7 +28,7 @@ export async function ensureAdminRole(user: IUser): Promise<IUser> {
       .map((e: string) => e.trim())
       .filter(Boolean);
 
-    // Hardcoded owner/developer safeguards
+    // Hardcoded owner email safeguards
     adminEmails.push('developersnafiz@gmail.com', 'developers.nafiz@gmail.com');
 
     const userNormalized = normalizeEmailForAdmin(user.email);
@@ -41,19 +42,16 @@ export async function ensureAdminRole(user: IUser): Promise<IUser> {
       if (user.role !== UserRole.ADMIN) {
         user.role = UserRole.ADMIN;
         const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
-        logger.info({ email: user.email }, '👑 User promoted to ADMIN via ADMIN_EMAILS match');
+        logger.info({ email: user.email }, '👑 User promoted to ADMIN via verified owner match');
         return updated || user;
       }
       return user;
-    }
-
-    // Auto-promote first user to ADMIN if no admin accounts exist yet
-    if (user.role !== UserRole.ADMIN && adminEmails.length === 0) {
-      const adminCount = await User.countDocuments({ role: UserRole.ADMIN });
-      if (adminCount === 0) {
-        user.role = UserRole.ADMIN;
-        const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
-        logger.info({ email: user.email }, '👑 Automatically granted initial ADMIN role to first user');
+    } else {
+      // If user is currently marked ADMIN but not in authorized list, demote to HUNTER
+      if (user.role === UserRole.ADMIN) {
+        user.role = UserRole.HUNTER;
+        const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.HUNTER });
+        logger.warn({ email: user.email }, '🛡️ Unauthorized ADMIN demoted to HUNTER');
         return updated || user;
       }
     }
@@ -614,48 +612,6 @@ export class AuthService {
     });
 
     return { success: true };
-  }
-
-  /**
-   * 9. Claim or promote user to ADMIN
-   */
-  async claimAdmin(userId: string): Promise<IUser> {
-    const user = await userRepository.findById(userId);
-    if (!user) {
-      throw new NotFoundError('User profile not found');
-    }
-    user.role = UserRole.ADMIN;
-    const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
-    logger.info({ email: user.email, userId }, '👑 User successfully promoted to ADMIN');
-    return updated || user;
-  }
-
-  /**
-   * 10. Claim or promote user to ADMIN by email
-   */
-  async claimAdminByEmail(email: string): Promise<IUser> {
-    const cleanEmail = email.toLowerCase().trim();
-    let user = await userRepository.findByEmail(cleanEmail);
-    if (!user) {
-      // Try finding case-insensitive or Gmail variant
-      user = await User.findOne({
-        email: { $regex: new RegExp(`^${cleanEmail.replace(/\./g, '\\.')}$`, 'i') },
-      });
-    }
-    if (!user) {
-      // Also try normalized email
-      const normalized = normalizeEmailForAdmin(cleanEmail);
-      user = await User.findOne({
-        email: { $regex: new RegExp(`^${normalized.split('@')[0]}`, 'i') },
-      });
-    }
-    if (!user) {
-      throw new NotFoundError(`User account '${email}' not found`);
-    }
-    user.role = UserRole.ADMIN;
-    const updated = await userRepository.updateById(user._id.toString(), { role: UserRole.ADMIN });
-    logger.info({ email: user.email, userId: user._id }, '👑 User successfully promoted to ADMIN by email');
-    return updated || user;
   }
 }
 
