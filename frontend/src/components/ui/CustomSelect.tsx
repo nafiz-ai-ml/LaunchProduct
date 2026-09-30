@@ -67,6 +67,7 @@ export function CustomSelect({
       ? defaultValue
       : ''
   );
+  const currentValue = controlledValue !== undefined ? controlledValue : internalValue;
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
 
@@ -77,9 +78,9 @@ export function CustomSelect({
     return options.map(normalizeOption);
   }, [options]);
 
-  const currentValue = controlledValue !== undefined ? controlledValue : internalValue;
-
-  const selectedOption = normalizedOptions.find((o) => o.value === currentValue);
+  const selectedOption = normalizedOptions.find(
+    (o) => Boolean(o.value) && String(o.value) === String(currentValue)
+  );
 
   // Close on outside click
   useEffect(() => {
@@ -245,13 +246,13 @@ export function CustomSelect({
           )}
         >
           {normalizedOptions.map((option, idx) => {
-            const isSelected = option.value === currentValue;
+            const isSelected = Boolean(option.value) && String(option.value) === String(currentValue);
             const isHighlighted = idx === highlightedIndex;
             const OptionIcon = option.icon;
 
             return (
               <div
-                key={option.value}
+                key={option.value || `opt-${idx}`}
                 role="option"
                 aria-selected={isSelected}
                 onClick={() => {

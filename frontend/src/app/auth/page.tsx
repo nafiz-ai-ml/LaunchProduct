@@ -63,7 +63,11 @@ export default function AuthPage() {
   const handleOAuth = (provider: 'google' | 'github') => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const baseUrl = apiUrl.includes('/api/v1') ? apiUrl : `${apiUrl.replace(/\/$/, '')}/api/v1`;
-    window.location.href = `${baseUrl}/auth/oauth/${provider}`;
+    const redirectParam = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
+      : '/dashboard';
+    const originParam = typeof window !== 'undefined' ? window.location.origin : '';
+    window.location.href = `${baseUrl}/auth/oauth/${provider}?returnUrl=${encodeURIComponent(redirectParam)}&origin=${encodeURIComponent(originParam)}`;
   };
 
   // Sign In with Email & Password

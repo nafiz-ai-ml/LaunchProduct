@@ -32,7 +32,14 @@ import {
   Terminal,
 } from 'lucide-react';
 
-const MVP_CATEGORIES = [
+interface CategoryItem {
+  id: string;
+  _id?: string;
+  slug: string;
+  name: string;
+}
+
+const MVP_CATEGORIES: CategoryItem[] = [
   { id: '6ab4fbbb93cf98ad0b5f59a5', slug: 'ai-tools', name: 'AI Tools' },
   { id: '6ab4fbbb93cf98ad0b5f59a6', slug: 'developer-tools', name: 'Developer Tools' },
   { id: '6ab4fbbb93cf98ad0b5f59a7', slug: 'saas-b2b', name: 'SaaS & B2B' },
@@ -52,7 +59,7 @@ export default function SubmitProductPage() {
   const [currentStep, setCurrentStep] = useState(1);
 
   // Categories list
-  const [categories, setCategories] = useState(MVP_CATEGORIES);
+  const [categories, setCategories] = useState<CategoryItem[]>(MVP_CATEGORIES);
 
   // Step 1: URL & Extraction
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -99,8 +106,14 @@ export default function SubmitProductPage() {
     apiClient
       .get('/categories')
       .then((res) => {
-        const catList = res.data?.data?.categories || res.data?.data || [];
-        if (Array.isArray(catList) && catList.length > 0) {
+        const rawList = res.data?.data?.categories || res.data?.data || [];
+        if (Array.isArray(rawList) && rawList.length > 0) {
+          const catList = rawList.map((c: any) => ({
+            id: (c.id || c._id)?.toString(),
+            _id: (c._id || c.id)?.toString(),
+            name: c.name,
+            slug: c.slug,
+          }));
           setCategories(catList);
           // Check URL query param for category (e.g. /submit?category=developer-tools)
           if (typeof window !== 'undefined') {
@@ -110,12 +123,12 @@ export default function SubmitProductPage() {
                 (c: any) => c.slug === urlCat || c.id === urlCat || c._id === urlCat
               );
               if (matched) {
-                setCategoryId(matched.id || matched._id);
+                setCategoryId(matched.id || matched._id || '');
                 return;
               }
             }
           }
-          setCategoryId(catList[0].id || catList[0]._id);
+          setCategoryId(catList[0].id || catList[0]._id || '');
         }
       })
       .catch(() => {});
@@ -219,8 +232,13 @@ export default function SubmitProductPage() {
         if (draft.name) setName(draft.name);
         if (draft.tagline) setTagline(draft.tagline);
         if (draft.description) setDescription(draft.description);
-        if (draft.media?.logoUrl) setLogoUrl(draft.media.logoUrl);
+        if (draft.media?.logoUrl || draft.logoUrl) setLogoUrl(draft.media?.logoUrl || draft.logoUrl);
         if (draft.slug) setProductSlug(draft.slug);
+        if (draft.suggestedCategorySlug && categories.length > 0) {
+          const matched = categories.find((c) => c.slug === draft.suggestedCategorySlug);
+          const foundId = (matched?.id || matched?._id)?.toString();
+          if (foundId) setCategoryId(foundId);
+        }
         setIsScraping(false);
         setCurrentStep(2);
         return;
@@ -234,15 +252,23 @@ export default function SubmitProductPage() {
           try {
             const statusRes = await apiClient.get(`/products/scrape-status/${jobId}`);
             const data = statusRes.data?.data;
-            if (data?.status === 'COMPLETED' || data?.name) {
+            const productData = data?.data || data;
+            if (data?.status === 'COMPLETED' || productData?.name) {
               clearInterval(interval);
               setIsScraping(false);
-              if (data.productId) setDraftId(data.productId);
-              if (data.name) setName(data.name);
-              if (data.tagline) setTagline(data.tagline);
-              if (data.description) setDescription(data.description);
-              if (data.logoUrl || data.media?.logoUrl) setLogoUrl(data.logoUrl || data.media?.logoUrl);
-              if (data.slug) setProductSlug(data.slug);
+              if (productData.productId) setDraftId(productData.productId);
+              if (productData.name) setName(productData.name);
+              if (productData.tagline) setTagline(productData.tagline);
+              if (productData.description) setDescription(productData.description);
+              if (productData.logoUrl || productData.media?.logoUrl) {
+                setLogoUrl(productData.logoUrl || productData.media?.logoUrl);
+              }
+              if (productData.slug) setProductSlug(productData.slug);
+              if (productData.suggestedCategorySlug && categories.length > 0) {
+                const matched = categories.find((c) => c.slug === productData.suggestedCategorySlug);
+                const foundId = (matched?.id || matched?._id)?.toString();
+                if (foundId) setCategoryId(foundId);
+              }
               setCurrentStep(2);
             } else if (data?.status === 'FAILED' || attempts >= 8) {
               clearInterval(interval);
@@ -769,8 +795,8 @@ export default function SubmitProductPage() {
                         value={categoryId}
                         onChange={(val) => setCategoryId(val)}
                         fullWidth
-                        options={categories.map((c) => ({
-                          value: c.id,
+                        options={categories.map((c: any) => ({
+                          value: (c.id || c._id)?.toString(),
                           label: c.name,
                         }))}
                       />

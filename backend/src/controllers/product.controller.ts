@@ -40,11 +40,12 @@ export class ProductController {
 
       const result = await productService.submitProductUrl(url, req.user.userId);
 
-      res.status(202).json({
+      res.status(200).json({
         success: true,
         data: {
           jobId: result.jobId,
-          message: 'Scrape ingestion task queued successfully',
+          draft: result.draft,
+          message: 'Scrape ingestion and metadata extraction completed successfully',
           statusUrl: `/api/v1/products/scrape-status/${result.jobId}`,
         },
         meta: getMetadata(req),

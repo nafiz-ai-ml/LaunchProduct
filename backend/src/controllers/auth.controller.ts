@@ -126,9 +126,14 @@ export class AuthController {
   async initiateOAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { provider } = req.params;
-      const returnUrl = (req.query.returnUrl as string) || '/dashboard';
+      const returnUrl = (req.query.returnUrl as string) || (req.query.redirect as string) || '/dashboard';
+      const clientOrigin = (req.query.origin as string) || req.get('origin') || req.get('referer') || '';
       const statePayload = Buffer.from(
-        JSON.stringify({ returnUrl, nonce: Math.random().toString(36).substring(2) })
+        JSON.stringify({
+          returnUrl,
+          clientOrigin,
+          nonce: Math.random().toString(36).substring(2),
+        })
       ).toString('base64');
 
       const backendUrl = getBackendBaseUrl(req);
@@ -183,11 +188,15 @@ export class AuthController {
       }
 
       let returnUrl = '/dashboard';
+      let clientOrigin = '';
       if (state && typeof state === 'string') {
         try {
           const parsedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
           if (parsedState.returnUrl && typeof parsedState.returnUrl === 'string') {
             returnUrl = parsedState.returnUrl.startsWith('/') ? parsedState.returnUrl : '/dashboard';
+          }
+          if (parsedState.clientOrigin && typeof parsedState.clientOrigin === 'string') {
+            clientOrigin = parsedState.clientOrigin.replace(/\/$/, '');
           }
         } catch {
           // Ignore invalid state decode and use default dashboard
@@ -282,7 +291,7 @@ export class AuthController {
         );
       }
 
-      const { sessionToken } = await authService.oauthCallback(
+      const { user, sessionToken } = await authService.oauthCallback(
         provider,
         providerUserId,
         email
@@ -291,8 +300,16 @@ export class AuthController {
       // Set session cookie
       res.cookie(COOKIE_NAME, sessionToken, getCookieOptions());
 
-      // Redirect to target frontend dashboard
-      const targetUrl = `${getFrontendBaseUrl()}${returnUrl}`;
+      // If user is ADMIN or MODERATOR, and default returnUrl was used, route to /admin
+      let finalReturnUrl = returnUrl;
+      if (['ADMIN', 'MODERATOR'].includes(user.role) && (returnUrl === '/dashboard' || !returnUrl)) {
+        finalReturnUrl = '/admin';
+      }
+
+      // Support cross-domain frontend redirection (e.g. Netlify) with token in query param
+      const frontendBase = clientOrigin || getFrontendBaseUrl();
+      const delimiter = finalReturnUrl.includes('?') ? '&' : '?';
+      const targetUrl = `${frontendBase}${finalReturnUrl}${delimiter}token=${sessionToken}`;
       res.redirect(302, targetUrl);
     } catch (error) {
       next(error);

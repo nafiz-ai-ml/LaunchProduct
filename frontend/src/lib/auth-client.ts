@@ -79,6 +79,21 @@ export async function resendVerificationCode(
  * Retrieves the currently authenticated session user profile
  */
 export async function getSessionUser(): Promise<User | null> {
+  // Capture session token if passed in URL query (e.g. from OAuth redirect)
+  if (typeof window !== 'undefined') {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tokenFromUrl = urlParams.get('token');
+      if (tokenFromUrl) {
+        localStorage.setItem('lp_token', tokenFromUrl);
+        urlParams.delete('token');
+        const newQuery = urlParams.toString();
+        const cleanUrl = window.location.pathname + (newQuery ? `?${newQuery}` : '') + (window.location.hash || '');
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch {}
+  }
+
   try {
     const res = await apiClient.get<any>('/auth/me');
     const rawData = res.data?.data;

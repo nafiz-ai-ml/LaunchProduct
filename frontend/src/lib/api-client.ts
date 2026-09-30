@@ -27,11 +27,21 @@ export const apiClient = axios.create({
   timeout: 15000,
 });
 
-// Request interceptor: Attach Authorization Bearer token from localStorage
+// Request interceptor: Attach Authorization Bearer token from localStorage or URL search
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('lp_token');
+      let token = localStorage.getItem('lp_token');
+      if (!token) {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const tokenFromUrl = urlParams.get('token');
+          if (tokenFromUrl) {
+            token = tokenFromUrl;
+            localStorage.setItem('lp_token', tokenFromUrl);
+          }
+        } catch {}
+      }
       if (token && !config.headers.Authorization) {
         config.headers.Authorization = `Bearer ${token}`;
       }

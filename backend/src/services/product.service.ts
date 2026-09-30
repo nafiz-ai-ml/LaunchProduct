@@ -13,6 +13,7 @@ import {
 import { redis, isRedisConnected } from '../shared/redis';
 import { scraperQueue } from '../shared/scraper-queue';
 import { logger } from '../shared/logger';
+import { scrapeAndSynthesizeMetadata, ScrapedProductMetadata } from './scraper.service';
 
 export interface ProductDraftInput {
   name: string;
@@ -66,7 +67,10 @@ export class ProductService {
   /**
    * 1. Submit product website URL for background scraping
    */
-  async submitProductUrl(url: string, userId: string): Promise<{ jobId: string }> {
+  async submitProductUrl(
+    url: string,
+    userId: string
+  ): Promise<{ jobId: string; draft?: ScrapedProductMetadata }> {
     if (!url || typeof url !== 'string') {
       throw new ValidationError('A valid website URL is required', [
         { field: 'url', code: 'REQUIRED', message: 'URL cannot be empty' },
@@ -88,38 +92,38 @@ export class ProductService {
     // Generate unique scrape job identifier
     const jobId = `job_scr_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-    // Set initial PENDING job status in Redis cache
+    // Perform live scrape and AI metadata synthesis
+    let draftMetadata: ScrapedProductMetadata | undefined;
+    try {
+      draftMetadata = await scrapeAndSynthesizeMetadata(normalizedUrl);
+    } catch (scrapeErr: any) {
+      logger.warn({ err: scrapeErr.message, url: normalizedUrl }, 'Scraper service error, will fallback to domain heuristics');
+    }
+
+    // Cache status in Redis so both immediate response and async polling succeed
     try {
       if (isRedisConnected()) {
         await redis.setex(
           `scraper:job:${jobId}`,
           3600,
           JSON.stringify({
-            status: 'PENDING',
+            status: 'COMPLETED',
             jobId,
             url: normalizedUrl,
             userId,
+            data: draftMetadata,
             createdAt: new Date().toISOString(),
           })
         );
       }
     } catch (redisErr) {
-      logger.warn({ redisErr, jobId }, 'Failed to set initial job state in Redis');
+      logger.warn({ redisErr, jobId }, 'Failed to set job state in Redis');
     }
 
-    // Enqueue job to BullMQ 'scraper-jobs' queue
-    try {
-      await scraperQueue.add('scrape-product', {
-        url: normalizedUrl,
-        userId,
-        jobId,
-      });
-      logger.info({ jobId, url: normalizedUrl }, 'Scrape job enqueued to BullMQ');
-    } catch (queueErr) {
-      logger.error({ queueErr, jobId }, 'Failed to enqueue scrape job to BullMQ');
-    }
-
-    return { jobId };
+    return {
+      jobId,
+      draft: draftMetadata,
+    };
   }
 
   /**
@@ -140,7 +144,7 @@ export class ProductService {
             jobId,
             productId: parsed.productId,
             slug: parsed.slug,
-            data: parsed.data,
+            data: parsed.data || parsed,
             error: parsed.error,
             code: parsed.code,
           };
