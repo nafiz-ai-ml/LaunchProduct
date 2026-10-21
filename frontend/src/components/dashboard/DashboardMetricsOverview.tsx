@@ -8,6 +8,9 @@ interface MetricsOverviewProps {
   clicks: number;
   ctr: number;
   votes: number;
+  paidRankingAmountCents?: number;
+  todayPaidAmountCents?: number;
+  allTimeRank?: number;
   isLoading?: boolean;
 }
 
@@ -16,38 +19,44 @@ export function DashboardMetricsOverview({
   clicks,
   ctr,
   votes,
+  paidRankingAmountCents = 0,
+  todayPaidAmountCents = 0,
+  allTimeRank,
   isLoading = false,
 }: MetricsOverviewProps) {
+  const allTimeDollars = (paidRankingAmountCents / 100).toFixed(2);
+  const todayDollars = (todayPaidAmountCents / 100).toFixed(2);
+
   const cards = [
     {
-      label: 'Total Impressions',
-      value: impressions.toLocaleString(),
-      subtext: 'Directory & category views',
-      icon: Eye,
+      label: 'All-Time Paid Rank',
+      value: allTimeRank ? `#${allTimeRank}` : (paidRankingAmountCents > 0 ? '$' + allTimeDollars : 'Unranked'),
+      subtext: paidRankingAmountCents > 0 ? `$${allTimeDollars} qualifying amount` : 'Pay $5.99 min to rank',
+      icon: Award,
       iconColor: 'text-primary',
       bgGlow: 'bg-primary/10',
     },
     {
+      label: "Today's Daily Bid",
+      value: `$${todayDollars}`,
+      subtext: 'UTC daily contribution',
+      icon: TrendingUp,
+      iconColor: 'text-amber-500',
+      bgGlow: 'bg-amber-500/10',
+    },
+    {
       label: 'Organic Outbound Clicks',
       value: clicks.toLocaleString(),
-      subtext: 'Direct visits to your landing page',
+      subtext: `${(ctr * 100).toFixed(1)}% CTR from directory`,
       icon: MousePointerClick,
       iconColor: 'text-emerald-500',
       bgGlow: 'bg-emerald-500/10',
     },
     {
-      label: 'Organic Click-Through (CTR)',
-      value: `${(ctr * 100).toFixed(1)}%`,
-      subtext: 'Clicks / Impressions ratio',
-      icon: Percent,
-      iconColor: 'text-amber-500',
-      bgGlow: 'bg-amber-500/10',
-    },
-    {
       label: 'Community Upvotes',
       value: votes.toLocaleString(),
-      subtext: 'Verified votes earned',
-      icon: Award,
+      subtext: 'Community social validation',
+      icon: Eye,
       iconColor: 'text-indigo-500',
       bgGlow: 'bg-indigo-500/10',
     },

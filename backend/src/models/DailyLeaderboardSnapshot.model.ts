@@ -1,6 +1,17 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 
-export type LeaderboardType = 'LAUNCH_DAY' | 'TRENDING' | 'ALL_TIME';
+export type LeaderboardType = 'TODAY' | 'ALL_TIME' | 'CATEGORY' | 'LAUNCH_DAY' | 'TRENDING';
+
+export interface IProductSnapshotData {
+  name: string;
+  slug: string;
+  tagline: string;
+  logoUrl?: string;
+  websiteUrl: string;
+  canonicalDomain: string;
+  categoryId?: Types.ObjectId;
+  categoryName?: string;
+}
 
 export interface IDailyLeaderboardSnapshot {
   _id: Types.ObjectId;
@@ -9,6 +20,8 @@ export interface IDailyLeaderboardSnapshot {
   productId: Types.ObjectId;
   rank: number;
   score: number;
+  paidAmountCents: number;
+  productSnapshot?: IProductSnapshotData;
   algorithmVersion: string;
   voteCount: number;
   reviewCount: number;
@@ -19,6 +32,20 @@ export interface IDailyLeaderboardSnapshot {
 export type DailyLeaderboardSnapshotDocument = IDailyLeaderboardSnapshot &
   Document<Types.ObjectId, object, IDailyLeaderboardSnapshot>;
 
+const ProductSnapshotSchema = new Schema<IProductSnapshotData>(
+  {
+    name: { type: String, required: true },
+    slug: { type: String, required: true },
+    tagline: { type: String, default: '' },
+    logoUrl: { type: String, default: null },
+    websiteUrl: { type: String, default: '' },
+    canonicalDomain: { type: String, default: '' },
+    categoryId: { type: Schema.Types.ObjectId, ref: 'Category', default: null },
+    categoryName: { type: String, default: null },
+  },
+  { _id: false }
+);
+
 const DailyLeaderboardSnapshotSchema = new Schema<IDailyLeaderboardSnapshot>(
   {
     snapshotDate: {
@@ -27,7 +54,7 @@ const DailyLeaderboardSnapshotSchema = new Schema<IDailyLeaderboardSnapshot>(
     },
     leaderboardType: {
       type: String,
-      enum: ['LAUNCH_DAY', 'TRENDING', 'ALL_TIME'],
+      enum: ['TODAY', 'ALL_TIME', 'CATEGORY', 'LAUNCH_DAY', 'TRENDING'],
       required: [true, 'Leaderboard type is required'],
     },
     productId: {
@@ -45,10 +72,19 @@ const DailyLeaderboardSnapshotSchema = new Schema<IDailyLeaderboardSnapshot>(
       required: [true, 'Calculated score is required'],
       default: 0,
     },
+    paidAmountCents: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    productSnapshot: {
+      type: ProductSnapshotSchema,
+      default: null,
+    },
     algorithmVersion: {
       type: String,
       required: [true, 'Algorithm version is required'],
-      default: '1.0.0',
+      default: 'pay-to-rank-1.0',
       trim: true,
     },
     voteCount: {

@@ -16,6 +16,10 @@ export interface FounderProduct {
   status?: string;
   launchDate?: string;
   isFeatured?: boolean;
+  paidRankingAmountCents?: number;
+  todayPaidAmountCents?: number;
+  allTimeRank?: number;
+  todayRank?: number;
 }
 
 export type BadgeStyle = 'dark' | 'light' | 'pill';

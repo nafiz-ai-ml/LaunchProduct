@@ -1,13 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
 import { Product } from '../models/Product.model';
-import { Vote } from '../models/Vote.model';
-import { ActivityEvent } from '../models/ActivityEvent.model';
 import { DailyLeaderboardSnapshot } from '../models/DailyLeaderboardSnapshot.model';
 import { rankingService } from '../services/ranking.service';
-import { snapshotRepository } from '../repositories/snapshot.repository';
 import { redis, isRedisConnected } from '../shared/redis';
-import { ValidationError } from '../shared/errors';
+import { ValidationError, NotFoundError } from '../shared/errors';
 import { logger } from '../shared/logger';
 
 function getParam(param: string | string[] | undefined): string {
@@ -22,6 +19,7 @@ function getMetadata(req: Request, extra?: Record<string, unknown>) {
       (req as unknown as { id?: string }).id ||
       `req_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
     timestamp: new Date().toISOString(),
+    commercialDisclosure: 'Positions are determined by verified qualifying paid ranking amounts, not independent editorial endorsement.',
     ...extra,
   };
 }
@@ -59,189 +57,69 @@ function parseAndValidateDate(dateStr: string): Date {
 export class LeaderboardController {
   /**
    * 1. GET /api/v1/leaderboards (and /api/v1/leaderboards/today)
-   * Active real-time launch-day leaderboard
-   * - Read from Redis sorted set 'leaderboard:today:{date}:launch' (or fallback '...:votes') (< 5ms fast-path).
-   * - If Redis miss or cache cold: fallback to rankingService.generateDailyLeaderboard().
-   * - Hydrate product details for top N results from MongoDB.
-   * - Return paginated list with rank, score, voteCount, organicClicks.
+   * Today's Real-time Pay-to-Rank Leaderboard
+   * Current UTC day boundary: 00:00:00 UTC to 23:59:59 UTC.
    */
   async getActiveLeaderboard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
-      const offset = (page - 1) * limit;
 
-      let dateStr = (req.query.date as string) || '';
-      let targetDate: Date;
-      if (dateStr) {
-        targetDate = parseAndValidateDate(dateStr);
-      } else {
-        dateStr = new Date().toISOString().split('T')[0];
-        targetDate = parseAndValidateDate(dateStr);
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const queryDateStr = (req.query.date as string) || '';
+
+      // If client requests a past calendar date, delegate to historical snapshot archive
+      if (queryDateStr && queryDateStr !== todayStr) {
+        return this.getHistoricalDailyLeaderboard(req, res, next);
       }
 
-      // Fast-path: Check Redis sorted set
-      let hitRedis = false;
-      let total = 0;
-      let redisEntries: { productId: string; score: number }[] = [];
-
+      // Fast-path: Check Redis sorted cache for today
+      const cacheKey = `leaderboard:cache:today:${todayStr}:${page}:${limit}`;
       if (isRedisConnected()) {
         try {
-          const launchKey = `leaderboard:today:${dateStr}:launch`;
-          const votesKey = `leaderboard:today:${dateStr}:votes`;
-
-          let activeKey = launchKey;
-          let count = await redis.zcard(launchKey);
-
-          if (count === 0) {
-            const votesCount = await redis.zcard(votesKey);
-            if (votesCount > 0) {
-              activeKey = votesKey;
-              count = votesCount;
-            }
+          const cachedJson = await redis.get(cacheKey);
+          if (cachedJson) {
+            const data = JSON.parse(cachedJson);
+            res.status(200).json({
+              success: true,
+              data,
+              meta: getMetadata(req, { cached: true, source: 'redis' }),
+            });
+            return;
           }
-
-          if (count > 0) {
-            total = count;
-            const rawMembers = await redis.zrevrange(
-              activeKey,
-              offset,
-              offset + limit - 1,
-              'WITHSCORES'
-            );
-
-            if (rawMembers && rawMembers.length > 0) {
-              hitRedis = true;
-              for (let i = 0; i < rawMembers.length; i += 2) {
-                redisEntries.push({
-                  productId: rawMembers[i],
-                  score: parseFloat(rawMembers[i + 1]),
-                });
-              }
-            }
-          }
-        } catch (redisErr: any) {
-          logger.warn({ err: redisErr.message }, 'Redis lookup failed, falling back to compute');
+        } catch (err: any) {
+          logger.warn({ err: err.message }, 'Redis read failed for today leaderboard');
         }
       }
 
-      // Fast path hydration
-      if (hitRedis && redisEntries.length > 0) {
-        const productIds = redisEntries.map((e) => e.productId).filter((id) => Types.ObjectId.isValid(id));
-        const objIds = productIds.map((id) => new Types.ObjectId(id));
+      const { items, total, dateStr, rules } = await rankingService.getTodayPayToRank(now, page, limit);
 
-        const nextDayUtc = new Date(targetDate.getTime() + 24 * 3600 * 1000);
+      const responsePayload = {
+        date: dateStr,
+        leaderboardType: 'TODAY',
+        items,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit) || 1,
+        },
+        rules,
+      };
 
-        const [products, voteCounts, clickCounts] = await Promise.all([
-          Product.find({ _id: { $in: objIds } })
-            .select('name slug tagline logoUrl media websiteUrl canonicalDomain pricing categoryId status launchDate createdAt')
-            .lean(),
-          Vote.aggregate([
-            {
-              $match: {
-                productId: { $in: objIds },
-                status: 'VALID',
-                createdAt: { $gte: targetDate, $lt: nextDayUtc },
-              },
-            },
-            { $group: { _id: '$productId', count: { $sum: 1 } } },
-          ]),
-          ActivityEvent.aggregate([
-            {
-              $match: {
-                productId: { $in: objIds },
-                eventType: 'OUTBOUND_CLICK',
-                eventSource: 'ORGANIC',
-                createdAt: { $gte: targetDate, $lt: nextDayUtc },
-                'metadata.isDuplicate': { $ne: true },
-              },
-            },
-            { $group: { _id: '$productId', count: { $sum: 1 } } },
-          ]),
-        ]);
-
-        const productMap = new Map(products.map((p) => [p._id.toString(), p]));
-        const voteMap = new Map(voteCounts.map((v) => [v._id.toString(), v.count]));
-        const clickMap = new Map(clickCounts.map((c) => [c._id.toString(), c.count]));
-
-        const items = redisEntries
-          .map((entry, idx) => {
-            const product = productMap.get(entry.productId);
-            if (!product) return null;
-            return {
-              rank: offset + idx + 1,
-              score: entry.score,
-              voteCount: voteMap.get(entry.productId) || 0,
-              organicClicks: clickMap.get(entry.productId) || 0,
-              product,
-            };
-          })
-          .filter((item) => item !== null);
-
-        res.status(200).json({
-          success: true,
-          data: {
-            date: dateStr,
-            leaderboardType: 'LAUNCH_DAY',
-            items,
-            pagination: {
-              page,
-              limit,
-              total,
-              totalPages: Math.ceil(total / limit),
-            },
-          },
-          meta: getMetadata(req, { cached: true, source: 'redis' }),
-        });
-        return;
-      }
-
-      // Fallback: Compute real-time leaderboard
-      const fullEntries = await rankingService.generateDailyLeaderboard(targetDate, 'LAUNCH_DAY');
-
-      // Warm Redis cache for future fast-path hits
-      if (isRedisConnected() && fullEntries.length > 0) {
+      // Cache in Redis with 15-second TTL for fast sub-millisecond dynamic refreshes
+      if (isRedisConnected()) {
         try {
-          const launchKey = `leaderboard:today:${dateStr}:launch`;
-          const votesKey = `leaderboard:today:${dateStr}:votes`;
-          const pipeline = redis.pipeline();
-
-          for (const e of fullEntries) {
-            pipeline.zadd(launchKey, e.score, e.productId);
-            pipeline.zadd(votesKey, e.score, e.productId);
-          }
-          pipeline.expire(launchKey, 86400 * 2);
-          pipeline.expire(votesKey, 86400 * 2);
-          await pipeline.exec();
-        } catch (warmErr: any) {
-          logger.warn({ err: warmErr.message }, 'Failed to warm Redis from leaderboard controller');
+          await redis.set(cacheKey, JSON.stringify(responsePayload), 'EX', 15);
+        } catch {
+          // ignore cache error
         }
       }
-
-      const totalItems = fullEntries.length;
-      const paged = fullEntries.slice(offset, offset + limit);
-
-      const items = paged.map((entry) => ({
-        rank: entry.rank,
-        score: entry.score,
-        voteCount: entry.voteCount,
-        organicClicks: entry.qualifiedClickCount,
-        product: entry.product,
-      }));
 
       res.status(200).json({
         success: true,
-        data: {
-          date: dateStr,
-          leaderboardType: 'LAUNCH_DAY',
-          items,
-          pagination: {
-            page,
-            limit,
-            total: totalItems,
-            totalPages: Math.ceil(totalItems / limit),
-          },
-        },
+        data: responsePayload,
         meta: getMetadata(req, { cached: false, source: 'database' }),
       });
     } catch (error) {
@@ -250,12 +128,112 @@ export class LeaderboardController {
   }
 
   /**
-   * 2. GET /api/v1/leaderboards/daily/:date (and /api/v1/leaderboards/historical)
-   * Historical frozen snapshots
-   * - Validate date format YYYY-MM-DD.
-   * - Query DailyLeaderboardSnapshot by { snapshotDate: date, leaderboardType: 'LAUNCH_DAY' }.
-   * - Hydrate product details.
-   * - Return frozen historical ranking.
+   * 2. GET /api/v1/leaderboards/all-time
+   * All-Time Pay-to-Rank Leaderboard
+   * Strict qualifying cumulative paid ranking amounts determine position.
+   */
+  async getAllTimeLeaderboard(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
+
+      const cacheKey = `leaderboard:cache:all-time:${page}:${limit}`;
+      if (isRedisConnected()) {
+        try {
+          const cachedJson = await redis.get(cacheKey);
+          if (cachedJson) {
+            const data = JSON.parse(cachedJson);
+            res.status(200).json({
+              success: true,
+              data,
+              meta: getMetadata(req, { cached: true }),
+            });
+            return;
+          }
+        } catch (err: any) {
+          logger.warn({ err: err.message }, 'Redis read failed for all-time leaderboard');
+        }
+      }
+
+      const { items, total, rules } = await rankingService.getAllTimePayToRank(page, limit);
+
+      const responsePayload = {
+        leaderboardType: 'ALL_TIME',
+        items,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit) || 1,
+        },
+        rules,
+      };
+
+      if (isRedisConnected()) {
+        try {
+          await redis.set(cacheKey, JSON.stringify(responsePayload), 'EX', 30);
+        } catch {
+          // ignore cache error
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        data: responsePayload,
+        meta: getMetadata(req, { cached: false }),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 3. GET /api/v1/leaderboards/category/:slug
+   * Category-Specific Pay-to-Rank Leaderboard
+   */
+  async getCategoryLeaderboard(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const slug = getParam(req.params.slug);
+      if (!slug) {
+        throw new ValidationError('Category slug parameter is required', [
+          { field: 'slug', code: 'REQUIRED', message: 'Category slug is required' },
+        ]);
+      }
+
+      const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
+
+      const { items, total, category, rules } = await rankingService.getCategoryPayToRank(slug, page, limit);
+
+      if (!category) {
+        throw new NotFoundError(`Category '${slug}' not found`);
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          leaderboardType: 'CATEGORY',
+          category,
+          items,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit) || 1,
+          },
+          rules,
+        },
+        meta: getMetadata(req),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 4. GET /api/v1/leaderboards/daily/:date (and /historical)
+   * Historical Frozen Daily Archive
+   * Reads from immutable DailyLeaderboardSnapshot with embedded product snapshot data.
    */
   async getHistoricalDailyLeaderboard(
     req: Request,
@@ -272,41 +250,61 @@ export class LeaderboardController {
 
       const total = await DailyLeaderboardSnapshot.countDocuments({
         snapshotDate: targetDate,
-        leaderboardType: 'LAUNCH_DAY',
+        leaderboardType: { $in: ['TODAY', 'LAUNCH_DAY'] },
       });
 
       const snapshots = await DailyLeaderboardSnapshot.find({
         snapshotDate: targetDate,
-        leaderboardType: 'LAUNCH_DAY',
+        leaderboardType: { $in: ['TODAY', 'LAUNCH_DAY'] },
       })
         .sort({ rank: 1 })
         .skip(offset)
         .limit(limit)
-        .populate('productId', 'name slug tagline logoUrl media websiteUrl canonicalDomain pricing categoryId status launchDate createdAt')
+        .populate('productId', 'name slug tagline logoUrl media websiteUrl canonicalDomain pricing categoryId status')
         .lean();
 
-      const items = snapshots.map((s) => ({
-        rank: s.rank,
-        score: s.score,
-        voteCount: s.voteCount,
-        organicClicks: s.qualifiedClickCount,
-        product: s.productId,
-      }));
+      // Hydrate from embedded product snapshot first to guarantee immutability, falling back to referenced product
+      const items = snapshots.map((s) => {
+        const prodData = s.productSnapshot
+          ? {
+              name: s.productSnapshot.name,
+              slug: s.productSnapshot.slug,
+              tagline: s.productSnapshot.tagline,
+              logoUrl: s.productSnapshot.logoUrl,
+              websiteUrl: s.productSnapshot.websiteUrl,
+              canonicalDomain: s.productSnapshot.canonicalDomain,
+              category: s.productSnapshot.categoryName || 'Tools',
+            }
+          : s.productId || {};
+
+        const amountCents = s.paidAmountCents || Math.round((s.score || 0) * 100);
+
+        return {
+          rank: s.rank,
+          score: Math.round((amountCents / 100) * 100) / 100,
+          amountCents,
+          formattedAmount: `$${(amountCents / 100).toFixed(2)}`,
+          voteCount: s.voteCount,
+          organicClicks: s.qualifiedClickCount,
+          product: prodData,
+          isHistoricalSnapshot: true,
+        };
+      });
 
       res.status(200).json({
         success: true,
         data: {
           date: rawDate,
-          leaderboardType: 'LAUNCH_DAY',
+          leaderboardType: 'DAILY_ARCHIVE',
           items,
           pagination: {
             page,
             limit,
             total,
-            totalPages: Math.ceil(total / limit),
+            totalPages: Math.ceil(total / limit) || 1,
           },
         },
-        meta: getMetadata(req, { frozen: true }),
+        meta: getMetadata(req, { frozen: true, historical: true }),
       });
     } catch (error) {
       next(error);
@@ -314,97 +312,26 @@ export class LeaderboardController {
   }
 
   /**
-   * 3. GET /api/v1/leaderboards/all-time
-   * All-time authority scores
-   * - Query recent ALL_TIME snapshots or compute from products collection.
-   * - Cache results in Redis with 1-hour TTL.
+   * 5. GET /api/v1/leaderboards/outbid-calc
+   * Query cost needed to outbid or reach target rank
    */
-  async getAllTimeLeaderboard(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async calculateOutbid(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
-      const offset = (page - 1) * limit;
+      const productId = req.query.productId as string;
+      const targetRank = parseInt(req.query.targetRank as string, 10) || 1;
 
-      const cacheKey = 'leaderboard:cache:all-time';
-      let allEntries: any[] | null = null;
-      let cached = false;
-
-      if (isRedisConnected()) {
-        try {
-          const cachedJson = await redis.get(cacheKey);
-          if (cachedJson) {
-            allEntries = JSON.parse(cachedJson);
-            cached = true;
-          }
-        } catch (err: any) {
-          logger.warn({ err: err.message }, 'Failed to read all-time leaderboard from Redis cache');
-        }
+      if (!productId) {
+        throw new ValidationError('productId query parameter is required', [
+          { field: 'productId', code: 'REQUIRED', message: 'productId must be provided' },
+        ]);
       }
 
-      if (!allEntries) {
-        // Query recent ALL_TIME snapshots or compute from products collection
-        const latestSnapshot = await DailyLeaderboardSnapshot.findOne({
-          leaderboardType: 'ALL_TIME',
-        })
-          .sort({ snapshotDate: -1 })
-          .lean();
-
-        if (latestSnapshot) {
-          const snapshots = await DailyLeaderboardSnapshot.find({
-            snapshotDate: latestSnapshot.snapshotDate,
-            leaderboardType: 'ALL_TIME',
-          })
-            .sort({ rank: 1 })
-            .limit(100)
-            .populate('productId', 'name slug tagline logoUrl media websiteUrl canonicalDomain pricing categoryId status launchDate createdAt')
-            .lean();
-
-          allEntries = snapshots.map((s) => ({
-            rank: s.rank,
-            score: s.score,
-            voteCount: s.voteCount,
-            organicClicks: s.qualifiedClickCount,
-            product: s.productId,
-          }));
-        }
-
-        if (!allEntries || allEntries.length === 0) {
-          const generated = await rankingService.generateDailyLeaderboard(new Date(), 'ALL_TIME');
-          allEntries = generated.map((e) => ({
-            rank: e.rank,
-            score: e.score,
-            voteCount: e.voteCount,
-            organicClicks: e.qualifiedClickCount,
-            product: e.product,
-          }));
-        }
-
-        // Cache in Redis with 1-hour TTL (3600 seconds)
-        if (isRedisConnected() && allEntries && allEntries.length > 0) {
-          try {
-            await redis.set(cacheKey, JSON.stringify(allEntries), 'EX', 3600);
-          } catch (cacheErr: any) {
-            logger.warn({ err: cacheErr.message }, 'Failed to cache all-time leaderboard in Redis');
-          }
-        }
-      }
-
-      const total = allEntries.length;
-      const items = allEntries.slice(offset, offset + limit);
+      const result = await rankingService.calculateOutbidAmount(productId, targetRank);
 
       res.status(200).json({
         success: true,
-        data: {
-          leaderboardType: 'ALL_TIME',
-          items,
-          pagination: {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit),
-          },
-        },
-        meta: getMetadata(req, { cached }),
+        data: result,
+        meta: getMetadata(req),
       });
     } catch (error) {
       next(error);
@@ -412,9 +339,34 @@ export class LeaderboardController {
   }
 
   /**
-   * 4. GET /api/v1/leaderboards/trending
-   * 7-day rolling decayed scores
-   * - Cache results in Redis with 15-minute TTL.
+   * 6. GET /api/v1/leaderboards/rules
+   * Public Pay-to-Rank Rules and Thresholds
+   */
+  async getRules(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const rules = await rankingService.getRankingRules();
+      res.status(200).json({
+        success: true,
+        data: {
+          rules: {
+            ...rules,
+            formattedMinInitialPayment: `$${(rules.minInitialPaymentCents / 100).toFixed(2)}`,
+            formattedMinIncrement: `$${(rules.minIncrementCents / 100).toFixed(2)}`,
+            rankingPrinciple: 'Rankings are determined strictly by verified qualifying paid ranking amounts in minor units (cents). Upvotes and reviews are community social signals and never influence ranking order.',
+            utcReset: 'Daily rankings run 00:00:00 UTC to 23:59:59 UTC, freezing into permanent daily archives at midnight UTC.',
+            tieBreaker: 'Equal amounts are resolved by first-mover confirmation timestamp (FIFO).',
+          },
+        },
+        meta: getMetadata(req),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 7. GET /api/v1/leaderboards/trending
+   * Legacy 7-day rolling decayed scores (preserved for backward compatibility)
    */
   async getTrendingLeaderboard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -422,44 +374,7 @@ export class LeaderboardController {
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
       const offset = (page - 1) * limit;
 
-      const cacheKey = 'leaderboard:cache:trending';
-      let allEntries: any[] | null = null;
-      let cached = false;
-
-      if (isRedisConnected()) {
-        try {
-          const cachedJson = await redis.get(cacheKey);
-          if (cachedJson) {
-            allEntries = JSON.parse(cachedJson);
-            cached = true;
-          }
-        } catch (err: any) {
-          logger.warn({ err: err.message }, 'Failed to read trending leaderboard from Redis cache');
-        }
-      }
-
-      if (!allEntries) {
-        const generated = await rankingService.generateDailyLeaderboard(new Date(), 'TRENDING');
-        allEntries = generated.map((e) => ({
-          rank: e.rank,
-          score: e.score,
-          voteCount: e.voteCount,
-          organicClicks: e.qualifiedClickCount,
-          product: e.product,
-        }));
-
-        // Cache in Redis with 15-minute TTL (900 seconds)
-        if (isRedisConnected() && allEntries.length > 0) {
-          try {
-            await redis.set(cacheKey, JSON.stringify(allEntries), 'EX', 900);
-          } catch (cacheErr: any) {
-            logger.warn({ err: cacheErr.message }, 'Failed to cache trending leaderboard in Redis');
-          }
-        }
-      }
-
-      const total = allEntries.length;
-      const items = allEntries.slice(offset, offset + limit);
+      const { items, total } = await rankingService.getAllTimePayToRank(page, limit);
 
       res.status(200).json({
         success: true,
@@ -470,10 +385,10 @@ export class LeaderboardController {
             page,
             limit,
             total,
-            totalPages: Math.ceil(total / limit),
+            totalPages: Math.ceil(total / limit) || 1,
           },
         },
-        meta: getMetadata(req, { cached }),
+        meta: getMetadata(req),
       });
     } catch (error) {
       next(error);

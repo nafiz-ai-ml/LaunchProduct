@@ -122,6 +122,13 @@ export function ProductCard({
             <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-subtle text-primary border border-primary/20">
               {pricingModel}
             </span>
+
+            {/* Pay-to-Rank Amount Pill (if ranked) */}
+            {product.paidRankingAmountCents !== undefined && product.paidRankingAmountCents > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                ${(product.paidRankingAmountCents / 100).toFixed(2)} Rank
+              </span>
+            )}
           </div>
 
           {/* Product Tagline */}

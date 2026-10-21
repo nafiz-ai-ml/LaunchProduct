@@ -15,12 +15,17 @@ import {
   ArrowRight,
   TrendingUp,
   RefreshCw,
+  Receipt,
+  ShieldCheck,
+  CreditCard,
+  History,
 } from 'lucide-react';
 import { DashboardProductSwitcher } from '@/components/dashboard/DashboardProductSwitcher';
 import { DashboardMetricsOverview } from '@/components/dashboard/DashboardMetricsOverview';
 import { DashboardPerformanceChart } from '@/components/dashboard/DashboardPerformanceChart';
 import { DashboardBadgeGenerator } from '@/components/dashboard/DashboardBadgeGenerator';
 import { DashboardProductEditModal } from '@/components/dashboard/DashboardProductEditModal';
+import { OutbidModal } from '@/components/leaderboard/OutbidModal';
 import { FounderProduct } from '@/components/dashboard/types';
 
 interface ToastMessage {
@@ -28,6 +33,21 @@ interface ToastMessage {
   title: string;
   description?: string;
   type?: 'success' | 'info' | 'error';
+}
+
+interface PaymentHistoryItem {
+  id: string;
+  paymentType: string;
+  productId?: { name?: string; slug?: string };
+  amountCents: number;
+  rankingContributionCents: number;
+  formattedAmount: string;
+  currency: string;
+  status: string;
+  provider: string;
+  providerPaymentId?: string;
+  targetDailyDate?: string;
+  createdAt: string;
 }
 
 export default function FounderDashboardPage() {
@@ -42,10 +62,15 @@ export default function FounderDashboardPage() {
   const [products, setProducts] = useState<FounderProduct[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>('');
 
-  // Edit Modal State
+  // Modals State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isOutbidModalOpen, setIsOutbidModalOpen] = useState(false);
 
-  // Real Backend Analytics State (Sections 18 & 20)
+  // Payments History State
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+
+  // Real Backend Analytics State
   const [selectedDays, setSelectedDays] = useState(30);
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<{
@@ -97,7 +122,8 @@ export default function FounderDashboardPage() {
         setCurrentUser(user);
         setAuthChecking(false);
         await loadFounderProducts(user);
-      } catch (err) {
+        await loadPaymentHistory();
+      } catch {
         if (isMounted) {
           router.replace('/auth?redirect=/dashboard');
         }
@@ -111,7 +137,7 @@ export default function FounderDashboardPage() {
     };
   }, [router]);
 
-  // Load Founder's Products from authenticated backend
+  // Load Founder's Products
   async function loadFounderProducts(userObj?: User | null) {
     try {
       setIsLoadingProducts(true);
@@ -126,7 +152,6 @@ export default function FounderDashboardPage() {
         loaded = rawData.products;
       }
 
-      // Fallback matching by founder email or ID if endpoint returns empty list
       if (loaded.length === 0 && targetUser) {
         try {
           const publicRes = await apiClient.get('/products?limit=25');
@@ -139,61 +164,79 @@ export default function FounderDashboardPage() {
 
           const matched = allPublic.filter(
             (p: any) =>
-              (p.founder && targetUser.email && p.founder.email === targetUser.email) ||
-              (p.founderId && (p.founderId === targetUser.id || p.founderId === targetUser.id))
+              (p.founder && p.founder.id === targetUser.id) ||
+              p.founderId === targetUser.id ||
+              p.submittedById === targetUser.id
           );
           if (matched.length > 0) {
-            setProducts(matched);
-            setSelectedProductId(matched[0]._id || matched[0].id);
-            return;
+            loaded = matched;
           }
         } catch {
-          // ignore fallback error
+          // ignore
         }
       }
 
-      const safeLoaded = Array.isArray(loaded) ? loaded : [];
-      setProducts(safeLoaded);
-      if (safeLoaded.length > 0) {
-        setSelectedProductId(safeLoaded[0]._id || safeLoaded[0].id);
+      setProducts(loaded);
+      if (loaded.length > 0 && !selectedProductId) {
+        setSelectedProductId(loaded[0].id || loaded[0]._id || '');
       }
-    } catch (err: any) {
-      console.warn('Failed to load user products:', err?.message);
-      setProducts([]);
+    } catch {
+      showToast('Notice', 'Unable to retrieve your products portfolio.', 'info');
     } finally {
       setIsLoadingProducts(false);
     }
   }
 
-  // Currently selected product
+  // Load Payment History
+  async function loadPaymentHistory() {
+    try {
+      setIsLoadingPayments(true);
+      const res = await apiClient.get('/payments/history');
+      if (res.data?.data?.payments && Array.isArray(res.data.data.payments)) {
+        setPaymentHistory(res.data.data.payments);
+      }
+    } catch {
+      // payment history endpoint silently degrades if no transactions exist yet
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  }
+
+  // Find currently selected product
   const selectedProduct = useMemo(() => {
-    if (!products || products.length === 0) return null;
-    return products.find((p) => (p._id || p.id) === selectedProductId) || products[0];
+    return products.find((p) => (p.id || p._id) === selectedProductId) || products[0] || null;
   }, [products, selectedProductId]);
 
-  // Query verified backend analytics endpoint: GET /api/v1/analytics/products/:id?days=N
+  // Load Product Analytics Telemetry
   useEffect(() => {
-    if (!selectedProductId) return;
+    if (!selectedProduct) return;
 
-    setIsAnalyticsLoading(true);
-    apiClient
-      .get(`/analytics/products/${selectedProductId}?days=${selectedDays}`)
-      .then((res) => {
-        const data = res.data?.data;
-        if (data && data.summary) {
-          setAnalyticsData(data);
-        } else {
+    let isMounted = true;
+    async function loadTelemetry() {
+      setIsAnalyticsLoading(true);
+      try {
+        const prodId = selectedProduct?.id || (selectedProduct as any)?._id;
+        const res = await apiClient.get(`/analytics/product/${prodId}`, {
+          params: { days: selectedDays },
+        });
+
+        if (isMounted && res.data?.data) {
+          setAnalyticsData(res.data.data);
+        }
+      } catch {
+        if (isMounted) {
           setAnalyticsData(null);
         }
-      })
-      .catch((err) => {
-        console.warn('Analytics fetch note:', err?.message);
-        setAnalyticsData(null);
-      })
-      .finally(() => {
-        setIsAnalyticsLoading(false);
-      });
-  }, [selectedProductId, selectedDays]);
+      } finally {
+        if (isMounted) setIsAnalyticsLoading(false);
+      }
+    }
+
+    loadTelemetry();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedProduct, selectedDays]);
 
   const handleProductUpdated = (updated: FounderProduct) => {
     setProducts((prev) =>
@@ -202,7 +245,6 @@ export default function FounderDashboardPage() {
     showToast('Product Updated Successfully!', 'Your changes have been saved to the directory.', 'success');
   };
 
-  // Safe metrics values directly mapped from real backend telemetry (Zero synthetic math)
   const impressions = analyticsData?.summary?.totalImpressions || 0;
   const clicks = analyticsData?.summary?.totalOrganicClicks || 0;
   const ctr = analyticsData?.summary?.organicCtr || 0;
@@ -210,7 +252,7 @@ export default function FounderDashboardPage() {
 
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
           <p className="text-xs font-mono text-text-muted">Authenticating founder session...</p>
@@ -220,9 +262,9 @@ export default function FounderDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg pb-24">
+    <div className="min-h-screen bg-background pb-24 text-text-primary">
       {/* Top Banner & Header */}
-      <section className="border-b border-border bg-gradient-to-b from-primary/5 via-bg to-bg pt-10 pb-8">
+      <section className="border-b border-border bg-gradient-to-b from-primary/5 via-surface to-background pt-10 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -231,33 +273,34 @@ export default function FounderDashboardPage() {
                 Founder Command Center
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">
-                Launch Performance &amp; Analytics
+                Launch Performance &amp; Commercial Rankings
               </h1>
               <p className="text-xs sm:text-sm text-text-muted mt-1 max-w-xl">
-                Track verified impressions, organic traffic, community voting velocity, and outbound referral telemetry.
+                Manage your products, outbid competitors to improve leaderboard position, and track verified referral traffic.
               </p>
             </div>
 
             {selectedProduct && (
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsOutbidModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-md hover:shadow-lg transition-all focus-ring"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-300" /> Pay to Rank Up
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface border border-border hover:bg-slate-100 dark:hover:bg-slate-800 text-text-secondary hover:text-text-primary text-xs font-semibold transition-colors focus-ring"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-sunken text-text-secondary hover:text-text-primary text-xs font-semibold transition-colors focus-ring"
                 >
                   <Edit3 className="w-3.5 h-3.5" /> Edit Details
                 </button>
                 <Link
                   href={`/products/${selectedProduct.slug}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface border border-border hover:bg-slate-100 dark:hover:bg-slate-800 text-text-secondary hover:text-text-primary text-xs font-semibold transition-colors focus-ring"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-sunken text-text-secondary hover:text-text-primary text-xs font-semibold transition-colors focus-ring"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" /> View Public Page
-                </Link>
-                <Link
-                  href="/promote"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold hover:shadow-md transition-all focus-ring"
-                >
-                  <Zap className="w-3.5 h-3.5" /> Promote Launch
+                  <ExternalLink className="w-3.5 h-3.5" /> Public Page
                 </Link>
               </div>
             )}
@@ -276,12 +319,15 @@ export default function FounderDashboardPage() {
               onSelectProduct={setSelectedProductId}
             />
 
-            {/* 2. Metrics Overview (Stat Cards) */}
+            {/* 2. Metrics Overview (Stat Cards including Pay-to-Rank stats) */}
             <DashboardMetricsOverview
               impressions={impressions}
               clicks={clicks}
               ctr={ctr}
               votes={votes}
+              paidRankingAmountCents={selectedProduct?.paidRankingAmountCents || 0}
+              todayPaidAmountCents={selectedProduct?.todayPaidAmountCents || 0}
+              allTimeRank={selectedProduct?.allTimeRank}
               isLoading={isAnalyticsLoading || isLoadingProducts}
             />
 
@@ -294,7 +340,91 @@ export default function FounderDashboardPage() {
               isLoading={isAnalyticsLoading}
             />
 
-            {/* 4. Embed Badge Generator */}
+            {/* 4. Payment History & Ledger Audit Trail */}
+            <div className="bg-surface border border-border rounded-2xl p-6 shadow-card space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <div className="flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-primary" />
+                  <div>
+                    <h3 className="font-bold text-sm text-text-primary">Verified Ranking Payment History</h3>
+                    <p className="text-xs text-text-muted">
+                      Audit ledger of qualifying payments and ranking activations
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsOutbidModalOpen(true)}
+                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-500" /> Increase Rank
+                </button>
+              </div>
+
+              {isLoadingPayments ? (
+                <div className="py-8 text-center text-xs text-text-muted flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+                  <span>Loading payment records...</span>
+                </div>
+              ) : paymentHistory.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-border text-text-muted uppercase text-[10px] tracking-wider font-semibold">
+                        <th className="pb-3">Date</th>
+                        <th className="pb-3">Type</th>
+                        <th className="pb-3">Product</th>
+                        <th className="pb-3">Amount</th>
+                        <th className="pb-3">Status</th>
+                        <th className="pb-3">Target Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border font-mono">
+                      {paymentHistory.map((item) => (
+                        <tr key={item.id} className="hover:bg-surface-sunken/40 transition-colors">
+                          <td className="py-3 text-text-muted">
+                            {new Date(item.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="py-3">
+                            <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded font-sans font-bold">
+                              {item.paymentType}
+                            </span>
+                          </td>
+                          <td className="py-3 font-sans font-medium text-text-primary">
+                            {item.productId?.name || 'Product'}
+                          </td>
+                          <td className="py-3 font-bold text-text-primary">
+                            {item.formattedAmount}
+                          </td>
+                          <td className="py-3">
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded font-sans font-bold ${
+                                item.status === 'SUCCEEDED'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                  : 'bg-amber-500/10 text-amber-600'
+                              }`}
+                            >
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="py-3 text-text-muted">
+                            {item.targetDailyDate || 'N/A'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-8 text-center text-xs text-text-muted space-y-2">
+                  <p>No verified ranking payments recorded yet.</p>
+                  <p className="text-[11px]">
+                    Pay the minimum threshold ($5.99) to establish your product's initial leaderboard ranking.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 5. Embed Badge Generator */}
             {selectedProduct && (
               <DashboardBadgeGenerator
                 productSlug={selectedProduct.slug}
@@ -303,14 +433,14 @@ export default function FounderDashboardPage() {
             )}
           </>
         ) : (
-          /* Empty State for user without products */
+          /* Empty State */
           <div className="max-w-md mx-auto text-center py-20 px-6 rounded-3xl bg-surface border border-border shadow-card space-y-4">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto border border-primary/20">
               <Rocket className="w-8 h-8" />
             </div>
             <h3 className="text-lg font-bold text-text-primary">No products launched yet</h3>
             <p className="text-xs text-text-muted leading-relaxed">
-              Submit your product to enter the official daily leaderboard, collect organic clicks, and unlock founder analytics.
+              Submit your product to enter the official Pay-to-Rank leaderboard, collect organic clicks, and unlock founder analytics.
             </p>
             <div className="pt-2">
               <Link
@@ -331,6 +461,24 @@ export default function FounderDashboardPage() {
         onClose={() => setIsEditModalOpen(false)}
         onProductUpdated={handleProductUpdated}
       />
+
+      {/* Outbid Modal */}
+      {selectedProduct && (
+        <OutbidModal
+          isOpen={isOutbidModalOpen}
+          onClose={() => setIsOutbidModalOpen(false)}
+          targetProduct={{
+            id: selectedProduct.id || selectedProduct._id || '',
+            name: selectedProduct.name,
+            slug: selectedProduct.slug,
+            amountCents: selectedProduct.paidRankingAmountCents,
+            rank: selectedProduct.allTimeRank,
+          }}
+          onAuthRequired={() => {
+            setIsOutbidModalOpen(false);
+          }}
+        />
+      )}
 
       {/* Feedback Toast Notification Container */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">

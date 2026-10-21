@@ -18,10 +18,31 @@ router.get('/today', (req, res, next) => leaderboardController.getActiveLeaderbo
 
 /**
  * 2. GET /api/v1/leaderboards/all-time
- * All-time authority scores (S_alltime)
- * Cached in Redis with 1-hour TTL.
+ * All-time Pay-to-Rank leaderboard (ordered by qualifying paid ranking amount)
  */
 router.get('/all-time', (req, res, next) => leaderboardController.getAllTimeLeaderboard(req, res, next));
+
+/**
+ * 2.5 GET /api/v1/leaderboards/category/:slug
+ * Category-filtered Pay-to-Rank leaderboard
+ */
+router.get('/category/:slug', (req, res, next) =>
+  leaderboardController.getCategoryLeaderboard(req, res, next)
+);
+
+/**
+ * 2.6 GET /api/v1/leaderboards/outbid-calc
+ * Calculate outbid amount needed for a product to achieve target rank
+ */
+router.get('/outbid-calc', (req, res, next) =>
+  leaderboardController.calculateOutbid(req, res, next)
+);
+
+/**
+ * 2.7 GET /api/v1/leaderboards/rules
+ * Public Pay-to-Rank rules, thresholds, and commercial transparency terms
+ */
+router.get('/rules', (req, res, next) => leaderboardController.getRules(req, res, next));
 
 /**
  * 3. GET /api/v1/leaderboards/trending

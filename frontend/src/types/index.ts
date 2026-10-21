@@ -57,6 +57,8 @@ export interface Product {
   isSponsored?: boolean;
   sponsorTier?: string;
   rank?: number;
+  paidRankingAmountCents?: number;
+  todayPaidAmountCents?: number;
   tags?: string[];
   canonicalDomain?: string;
   status?: 'DRAFT' | 'PENDING_REVIEW' | 'SCHEDULED' | 'LIVE' | 'SUSPENDED' | 'ARCHIVED';

@@ -63,8 +63,9 @@ export class WebhookController {
       res.status(200).json({
         success: true,
         data: {
-          message: result.message || 'Webhook processed and campaign activated.',
+          message: result.message || 'Webhook processed successfully.',
           campaignId: result.campaignId,
+          productId: result.productId,
         },
       });
     } catch (error) {

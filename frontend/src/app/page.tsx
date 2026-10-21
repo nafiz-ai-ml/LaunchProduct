@@ -245,34 +245,34 @@ export default function HomePage() {
           
           <div className="relative z-10 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/25 mb-4 backdrop-blur-sm">
-              <Sparkles className="w-3.5 h-3.5 text-orange-400" />
-              <span>Today&apos;s Featured Product Discovery</span>
+              <Zap className="w-3.5 h-3.5 text-orange-400" />
+              <span>Transparent Pay-to-Rank Product Discovery</span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white leading-tight">
-              Where High-Integrity <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff751f] via-amber-400 to-[#ff9f43]">Products Launch</span> &amp; Grow
+              Where High-Integrity <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff751f] via-amber-400 to-[#ff9f43]">Products Rank</span> &amp; Compete
             </h1>
 
             <p className="mt-3 text-xs sm:text-sm text-stone-300 leading-relaxed max-w-xl font-normal">
-              Discover vetted AI tools, developer utilities, and indie SaaS startups. Ranked by authentic community engagement with multi-signal anti-fraud protection.
+              Discover vetted AI tools, developer utilities, and indie SaaS startups. Leaderboard positions are determined strictly by verified qualifying paid ranking amounts with UTC midnight daily resets.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-4">
               <Link
-                href="/submit"
+                href="/leaderboards"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff751f] via-amber-500 to-[#ea580c] hover:opacity-95 text-white text-xs sm:text-sm font-semibold shadow-md shadow-orange-500/25 transition-all duration-200 focus-ring"
               >
-                <span>Launch Your Product</span>
+                <span>Explore Live Leaderboards</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-stone-300">
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  Anti-Fraud Verified
+                  Commercial Transparency
                 </span>
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  Dual-Engine Discovery
+                  $5.99 Min Initial Entry
                 </span>
               </div>
             </div>

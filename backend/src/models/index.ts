@@ -17,3 +17,4 @@ export * from './DailyLeaderboardSnapshot.model';
 export * from './ActivityEvent.model';
 export * from './ModerationAction.model';
 export * from './SystemSettings.model';
+export * from './RankingLedger.model';

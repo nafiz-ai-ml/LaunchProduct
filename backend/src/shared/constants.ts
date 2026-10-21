@@ -160,3 +160,21 @@ export const SLOT_LIMITS = {
 // 14. 15-Minute Checkout Reservation TTL
 export const SLOT_RESERVATION_TTL_SECONDS = 900; // 15 minutes
 
+// 15. Pay-to-Rank Commercial Configuration (integer minor units in USD cents)
+export const MIN_INITIAL_RANKING_PAYMENT_CENTS = 599; // $5.99 minimum initial entry payment
+export const MIN_RANKING_INCREMENT_CENTS = 100;       // $1.00 minimum increment to outbid or step up rank
+
+export enum PaymentType {
+  RANKING = 'RANKING',
+  SPONSORSHIP = 'SPONSORSHIP',
+}
+export type PaymentTypeEnum = `${PaymentType}`;
+
+export enum RankingBoardType {
+  ALL_TIME = 'ALL_TIME',
+  TODAY = 'TODAY',
+  CATEGORY = 'CATEGORY',
+  DAILY_ARCHIVE = 'DAILY_ARCHIVE',
+}
+export type RankingBoardTypeEnum = `${RankingBoardType}`;
+

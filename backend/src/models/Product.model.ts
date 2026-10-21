@@ -32,6 +32,13 @@ export interface IProduct {
   launchDate?: Date;
   rejectionReason?: string;
   initialVersion: number;
+  paidRankingAmountCents: number;
+  todayPaidAmountCents: number;
+  todayPaidDate?: string;
+  firstPaidAt?: Date;
+  lastPaidAt?: Date;
+  allTimeRank?: number;
+  todayRank?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -170,6 +177,39 @@ const ProductSchema = new Schema<IProduct>(
       min: 1,
       required: true,
     },
+    paidRankingAmountCents: {
+      type: Number,
+      default: 0,
+      min: 0,
+      required: true,
+    },
+    todayPaidAmountCents: {
+      type: Number,
+      default: 0,
+      min: 0,
+      required: true,
+    },
+    todayPaidDate: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    firstPaidAt: {
+      type: Date,
+      default: null,
+    },
+    lastPaidAt: {
+      type: Date,
+      default: null,
+    },
+    allTimeRank: {
+      type: Number,
+      default: null,
+    },
+    todayRank: {
+      type: Number,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -188,6 +228,15 @@ ProductSchema.index({ categoryId: 1, status: 1, launchDate: -1 });
 
 // 2. Compound index: leaderboard queries
 ProductSchema.index({ status: 1, launchDate: 1 });
+
+// 2.1 Pay-to-Rank All-Time Leaderboard compound index
+ProductSchema.index({ status: 1, paidRankingAmountCents: -1, firstPaidAt: 1, createdAt: 1 });
+
+// 2.2 Pay-to-Rank Today Leaderboard compound index
+ProductSchema.index({ status: 1, todayPaidAmountCents: -1, lastPaidAt: 1 });
+
+// 2.3 Pay-to-Rank Category Leaderboard compound index
+ProductSchema.index({ categoryId: 1, status: 1, paidRankingAmountCents: -1, firstPaidAt: 1 });
 
 // 3. Compound index: founder dashboard queries
 ProductSchema.index({ founderId: 1, status: 1 });
