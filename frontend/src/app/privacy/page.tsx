@@ -9,188 +9,130 @@ import {
   Database,
   FileCheck,
   Globe2,
-  Trash2,
   Mail,
   ArrowRight,
-  Sparkles,
+  Server,
+  CreditCard,
 } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="min-h-screen bg-bg text-text-primary pb-24">
-      {/* Ambient background aura */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-brand-primary/10 blur-[130px] rounded-full" />
+    <div className="w-full max-w-4xl mx-auto px-4 sm:px-8 py-10 space-y-10 font-sans">
+      {/* Title */}
+      <div className="space-y-3 border-b border-border pb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+          <span>Accountless Architecture &amp; Data Protection</span>
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-black text-text-primary tracking-tight">
+          Privacy Policy
+        </h1>
+        <p className="text-xs sm:text-sm text-text-secondary leading-relaxed max-w-2xl">
+          LaunchProduct is built on an accountless discovery architecture. We do not require account registration, do not sell user data, and never store raw credit card numbers.
+        </p>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-xs text-text-secondary mb-6">
-          <Link href="/" className="hover:text-brand-primary transition-colors">
-            Home
-          </Link>
-          <span>/</span>
-          <span className="text-text-primary font-medium">Privacy Policy</span>
-        </nav>
-
-        {/* Header Hero */}
-        <div className="relative rounded-3xl p-8 sm:p-12 mb-12 border border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-b from-surface/90 to-surface/40 backdrop-blur-xl shadow-xl overflow-hidden">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 mb-4 shadow-sm">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Zero-Tracker Architecture & Privacy Manifesto</span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary">
-              Privacy <span className="text-gradient">Policy</span>
-            </h1>
-            <p className="mt-4 text-sm sm:text-base text-text-secondary leading-relaxed">
-              At LaunchProduct, privacy is not a compliance checkbox—it is a core engineering tenet. We do not sell your data, we deploy zero third-party ad pixels, and we employ passwordless authentication.
-            </p>
-            <div className="mt-6 flex flex-wrap items-center gap-4 text-xs text-text-secondary pt-4 border-t border-slate-200/60 dark:border-slate-800/60">
-              <span><strong>Last Updated:</strong> September 25, 2026</span>
-              <span>•</span>
-              <span><strong>Compliance:</strong> GDPR (EU), CCPA (California), UK-GDPR</span>
-              <span>•</span>
-              <span><strong>Ad Trackers:</strong> 0 (Guaranteed)</span>
-            </div>
-          </div>
+      {/* Summary Highlights */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
+          <EyeOff className="w-5 h-5 text-primary" />
+          <h3 className="text-xs font-bold text-text-primary">No User Accounts</h3>
+          <p className="text-[11px] text-text-muted leading-relaxed">
+            You browse, discover, and submit products without creating passwords or account profiles.
+          </p>
         </div>
 
-        {/* Core Guarantees 3-Column Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-12">
-          <div className="p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-surface/70 backdrop-blur-md">
-            <EyeOff className="w-8 h-8 text-brand-primary mb-3" />
-            <h3 className="text-sm font-bold text-text-primary">Zero Third-Party Trackers</h3>
-            <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">
-              No Meta Pixel, Google AdSense, or invasive surveillance scripts run on LaunchProduct.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-surface/70 backdrop-blur-md">
-            <Lock className="w-8 h-8 text-emerald-500 mb-3" />
-            <h3 className="text-sm font-bold text-text-primary">100% Passwordless</h3>
-            <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">
-              We never store passwords. All logins use cryptographic magic links or verified OAuth providers.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-surface/70 backdrop-blur-md">
-            <Database className="w-8 h-8 text-indigo-400 mb-3" />
-            <h3 className="text-sm font-bold text-text-primary">Right to Erasure</h3>
-            <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">
-              Complete one-click data deletion: purge your votes, profile, and email from our database at any time.
-            </p>
-          </div>
+        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
+          <CreditCard className="w-5 h-5 text-emerald-500" />
+          <h3 className="text-xs font-bold text-text-primary">Zero Card Storage</h3>
+          <p className="text-[11px] text-text-muted leading-relaxed">
+            All payments are processed by PCI-DSS compliant Merchants of Record (Paddle / Lemon Squeezy).
+          </p>
         </div>
 
-        {/* Detailed Sections */}
-        <div className="space-y-10 text-sm leading-relaxed text-text-secondary">
-          {/* Section 1: Information Collected */}
-          <section className="rounded-2xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800/80 bg-surface/60 backdrop-blur-md">
-            <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-brand-primary/10 text-brand-primary flex items-center justify-center text-xs font-bold">
-                1
-              </span>
-              Information We Collect & Why
-            </h2>
-            <p className="mb-4">
-              We only collect data strictly necessary to operate our product discovery and anti-fraud ranking systems:
-            </p>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left border border-slate-200/60 dark:border-slate-800/60 rounded-xl overflow-hidden">
-                <thead className="bg-slate-100/60 dark:bg-slate-800/60 text-text-primary font-semibold">
-                  <tr>
-                    <th className="p-3">Data Point</th>
-                    <th className="p-3">Collection Method</th>
-                    <th className="p-3">Operational Purpose</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
-                  <tr>
-                    <td className="p-3 font-medium text-text-primary">Email Address</td>
-                    <td className="p-3">User provided at login</td>
-                    <td className="p-3">Sending secure passwordless magic links and critical moderation updates</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-medium text-text-primary">IP & User-Agent Hash</td>
-                    <td className="p-3">Automated network handshake</td>
-                    <td className="p-3">
-                      Anonymously hashed to detect coordinated Sybil bot rings, subnet bursts, and datacenter proxy voting
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-medium text-text-primary">Product Submissions</td>
-                    <td className="p-3">Founder provided</td>
-                    <td className="p-3">Public directory listing, tags, screenshots, and domain verification records</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-medium text-text-primary">Billing Information</td>
-                    <td className="p-3">Handled by Paddle (MoR)</td>
-                    <td className="p-3">
-                      We never store raw credit card numbers. Paddle processes payments and sends encrypted webhook confirmation
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* Section 2: How We Protect Data */}
-          <section className="rounded-2xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800/80 bg-surface/60 backdrop-blur-md">
-            <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-brand-primary/10 text-brand-primary flex items-center justify-center text-xs font-bold">
-                2
-              </span>
-              Security & Cryptographic Standards
-            </h2>
-            <p className="mb-3">
-              All data in transit is encrypted using modern TLS 1.3 encryption. At rest, data is stored with AES-256 encryption. Our authentication tokens utilize ephemeral, signed JSON Web Tokens (JWT) stored in HTTP-only, Secure, SameSite=Strict cookies to prevent cross-site scripting (XSS) and CSRF attacks.
-            </p>
-          </section>
-
-          {/* Section 3: User Rights */}
-          <section className="rounded-2xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800/80 bg-surface/60 backdrop-blur-md">
-            <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-brand-primary/10 text-brand-primary flex items-center justify-center text-xs font-bold">
-                3
-              </span>
-              Your Global Rights (GDPR & CCPA)
-            </h2>
-            <p className="mb-3">Regardless of your physical location, we grant all users the following fundamental rights:</p>
-            <ul className="list-disc pl-5 space-y-2">
-              <li>
-                <strong>Right to Access & Portability:</strong> Request an export of all products, votes, and activity associated with your email.
-              </li>
-              <li>
-                <strong>Right to Rectification:</strong> Edit or correct any inaccurate product or founder profile details.
-              </li>
-              <li>
-                <strong>Right to Deletion:</strong> Permanently wipe your account and associated private data within 72 hours.
-              </li>
-              <li>
-                <strong>Opt-Out of Non-Essential Communications:</strong> We send zero unsolicited promotional spam. You control all email notification preferences.
-              </li>
-            </ul>
-          </section>
-
-          {/* Data Protection Officer contact */}
-          <div className="rounded-2xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800/80 bg-surface/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div>
-              <h3 className="text-base font-bold text-text-primary">Data Protection Officer</h3>
-              <p className="text-xs text-text-secondary mt-1">
-                To exercise your rights or request an immediate data export/purge, contact: <span className="font-mono text-brand-primary">privacy@launchproduct.io</span>.
-              </p>
-            </div>
-            <Link
-              href="/terms"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface border border-slate-200 dark:border-slate-700 hover:border-brand-primary text-text-primary text-xs font-semibold transition-all shrink-0"
-            >
-              <span>View Terms of Service</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
+          <Server className="w-5 h-5 text-indigo-500" />
+          <h3 className="text-xs font-bold text-text-primary">Minimal Data Footprint</h3>
+          <p className="text-[11px] text-text-muted leading-relaxed">
+            We collect only what is strictly necessary to publish listings and verify ranking ledger payments.
+          </p>
         </div>
+      </div>
+
+      {/* Detailed Policy Sections */}
+      <div className="space-y-8 text-xs sm:text-sm text-text-secondary leading-relaxed">
+        <section className="rounded-2xl bg-surface border border-border p-6 space-y-3">
+          <h2 className="text-base font-bold text-text-primary">1. Information We Collect</h2>
+          <p>
+            When you interact with LaunchProduct, we process the following categories of data:
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-xs">
+            <li>
+              <strong>Public Product Submission Data:</strong> Product name, website URL, normalized canonical domain, tagline, description, category selection, and logo URL.
+            </li>
+            <li>
+              <strong>Optional Founder Email:</strong> If provided during submission or checkout, your email address is used solely for payment receipt delivery and critical moderation notices.
+            </li>
+            <li>
+              <strong>Technical &amp; Telemetry Data:</strong> Standard server access logs including IP address, user-agent, request timestamp, and rate-limiting counters.
+            </li>
+          </ul>
+        </section>
+
+        <section className="rounded-2xl bg-surface border border-border p-6 space-y-3">
+          <h2 className="text-base font-bold text-text-primary">2. Payment Data &amp; Merchant of Record</h2>
+          <p>
+            LaunchProduct does not collect, receive, or store your credit card numbers, CVVs, or bank credentials. All financial transactions are executed through accredited Merchants of Record (Paddle / Lemon Squeezy).
+          </p>
+          <p>
+            Our backend receives signed, cryptographically verified webhooks from the payment provider containing transaction status, payment identifier, and paid ranking amount in cents to update the ranking ledger.
+          </p>
+        </section>
+
+        <section className="rounded-2xl bg-surface border border-border p-6 space-y-3">
+          <h2 className="text-base font-bold text-text-primary">3. Purpose and Legal Basis for Processing</h2>
+          <p>
+            We process data under the following legal bases pursuant to the GDPR and international data protection laws:
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-xs">
+            <li>
+              <strong>Contractual Performance:</strong> To publish submitted products and apply qualifying paid ranking amounts to the public leaderboards.
+            </li>
+            <li>
+              <strong>Legitimate Interests:</strong> To protect the platform against fraud, Sybil attacks, duplicate listing abuse, and denial-of-service attempts.
+            </li>
+            <li>
+              <strong>Legal Compliance:</strong> To maintain verifiable financial records for accounting and tax compliance.
+            </li>
+          </ul>
+        </section>
+
+        <section className="rounded-2xl bg-surface border border-border p-6 space-y-3">
+          <h2 className="text-base font-bold text-text-primary">4. Cookies and Local Storage</h2>
+          <p>
+            LaunchProduct uses minimal, privacy-respecting local storage strictly necessary for user preferences (such as light/dark theme selection). We do not deploy invasive third-party tracking pixels, advertising retargeting scripts, or cross-site tracking cookies.
+          </p>
+        </section>
+
+        <section className="rounded-2xl bg-surface border border-border p-6 space-y-3">
+          <h2 className="text-base font-bold text-text-primary">5. User Rights and Data Deletion</h2>
+          <p>
+            Under applicable data protection legislation (including GDPR and CCPA), you have the right to request access to, correction of, or deletion of your personal data.
+          </p>
+          <p>
+            To request removal of a published product listing or data correction, contact support at <a href="mailto:privacy@launchproduct.com" className="text-primary hover:underline">privacy@launchproduct.com</a>. Removal requests for verified trademark infringement or legal violations are honored promptly.
+          </p>
+        </section>
+      </div>
+
+      {/* Back Link */}
+      <div className="pt-4 border-t border-border">
+        <Link
+          href="/"
+          className="text-xs font-semibold text-text-muted hover:text-text-primary transition-colors inline-flex items-center gap-1.5"
+        >
+          <span>← Back to Leaderboards</span>
+        </Link>
       </div>
     </div>
   );

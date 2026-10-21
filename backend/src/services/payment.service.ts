@@ -3,7 +3,7 @@ import mongoose, { Types } from 'mongoose';
 import { Campaign, CampaignTier } from '../models/Campaign.model';
 import { Product } from '../models/Product.model';
 import { Payment } from '../models/Payment.model';
-import { RankingLedger } from '../models/RankingLedger.model';
+import { RankingLedger, RankingContributionType } from '../models/RankingLedger.model';
 import { PaymentWebhookEvent } from '../models/PaymentWebhookEvent.model';
 import { ActivityEvent } from '../models/ActivityEvent.model';
 import { User } from '../models/User.model';
@@ -11,6 +11,7 @@ import { campaignQueue } from '../shared/campaign-queue';
 import { emailQueue } from '../shared/email-queue';
 import {
   PaymentStatus,
+  ProductStatus,
   EventSource,
   SPONSORSHIP_DURATIONS_HOURS,
   MIN_INITIAL_RANKING_PAYMENT_CENTS,
@@ -36,8 +37,10 @@ export interface CheckoutSessionParams {
 export interface RankingCheckoutSessionParams {
   productId: string;
   productName: string;
-  founderId: string;
+  founderId?: string;
   founderEmail?: string;
+  payerEmail?: string;
+  contributionType?: 'INITIAL_ENTRY' | 'DAILY' | 'ALL_TIME_BOOST';
   amountCents: number;
   successUrl: string;
   cancelUrl: string;
@@ -152,14 +155,16 @@ export class PaddleProvider implements IPaymentProvider {
     const query = new URLSearchParams({
       txn: sessionId,
       productId: params.productId,
-      founderId: params.founderId,
+      founderId: params.founderId || '',
       paymentType: 'RANKING',
+      contributionType: params.contributionType || 'DAILY',
       amountCents: params.amountCents.toString(),
       returnUrl: params.successUrl,
       cancelUrl: params.cancelUrl,
     });
 
-    if (params.founderEmail) query.set('email', params.founderEmail);
+    const email = params.founderEmail || params.payerEmail;
+    if (email) query.set('email', email);
     if (params.productName) query.set('productName', `${params.productName} — LaunchProduct Rank`);
 
     const checkoutUrl = `${checkoutHost}/checkout/build?${query.toString()}`;
@@ -324,9 +329,10 @@ export class LemonSqueezyProvider implements IPaymentProvider {
     const sessionId = `txn_ls_rank_${params.productId}_${Date.now()}`;
     const query = new URLSearchParams({
       'checkout[custom][product_id]': params.productId,
-      'checkout[custom][founder_id]': params.founderId,
+      'checkout[custom][founder_id]': params.founderId || '',
       'checkout[custom][payment_type]': 'RANKING',
-      'checkout[email]': params.founderEmail || '',
+      'checkout[custom][contribution_type]': params.contributionType || 'DAILY',
+      'checkout[email]': params.founderEmail || params.payerEmail || '',
       'checkout[product_name]': `${params.productName} — LaunchProduct Rank`,
       'return_url': params.successUrl,
       'cancel_url': params.cancelUrl,
@@ -441,11 +447,14 @@ export class PaymentService {
    */
   async createRankingCheckout(params: {
     productId: string;
-    founderId: string;
     amountCents: number;
+    founderId?: string;
+    founderEmail?: string;
+    payerEmail?: string;
+    contributionType?: 'INITIAL_ENTRY' | 'DAILY' | 'ALL_TIME_BOOST';
+    provider?: string;
     successUrl: string;
     cancelUrl: string;
-    provider?: string;
   }): Promise<{
     checkoutUrl: string;
     sessionId: string;
@@ -454,7 +463,17 @@ export class PaymentService {
     targetDailyDate: string;
     formattedAmount: string;
   }> {
-    const { productId, founderId, amountCents, successUrl, cancelUrl, provider = 'paddle' } = params;
+    const {
+      productId,
+      founderId,
+      founderEmail,
+      payerEmail,
+      contributionType = 'DAILY',
+      amountCents,
+      successUrl,
+      cancelUrl,
+      provider = 'paddle',
+    } = params;
 
     if (!productId || !Types.ObjectId.isValid(productId)) {
       throw new ValidationError('Valid productId is required for ranking checkout', [
@@ -465,18 +484,6 @@ export class PaymentService {
     const product = await Product.findById(productId);
     if (!product) {
       throw new NotFoundError(`Product '${productId}' not found`);
-    }
-
-    // Tenant / Ownership Authorization check
-    const isOwner =
-      (product.founderId && product.founderId.toString() === founderId) ||
-      (product.submittedById && product.submittedById.toString() === founderId);
-
-    if (!isOwner) {
-      const user = await User.findById(founderId).lean();
-      if (!user || user.role !== 'ADMIN') {
-        throw new AuthenticationError('You do not have permission to purchase ranking for this product', 'FORBIDDEN');
-      }
     }
 
     // Validate Pay-to-Rank threshold and increment rules
@@ -509,14 +516,21 @@ export class PaymentService {
       );
     }
 
-    const founder = await User.findById(founderId).lean();
+    let emailToUse = founderEmail || payerEmail;
+    if (!emailToUse && founderId && Types.ObjectId.isValid(founderId)) {
+      const founder = await User.findById(founderId).lean();
+      emailToUse = founder?.email;
+    }
+
     const providerInstance = getPaymentProvider(provider);
 
     const sessionResult = await providerInstance.createRankingCheckoutSession({
       productId: product._id.toString(),
       productName: product.name,
       founderId,
-      founderEmail: founder?.email,
+      founderEmail: emailToUse,
+      payerEmail: emailToUse,
+      contributionType,
       amountCents,
       successUrl,
       cancelUrl,
@@ -632,13 +646,34 @@ export class PaymentService {
 
       const now = new Date();
       const targetDailyDate = now.toISOString().split('T')[0];
-      const founderId = product.founderId || (event.founderId ? new Types.ObjectId(event.founderId) : product.submittedById);
+      const founderId = product.founderId || (event.founderId && Types.ObjectId.isValid(event.founderId) ? new Types.ObjectId(event.founderId) : product.submittedById);
       const paymentAmountCents = event.amountCents || MIN_INITIAL_RANKING_PAYMENT_CENTS;
 
       const previousAllTime = product.paidRankingAmountCents || 0;
-      const newAllTime = previousAllTime + paymentAmountCents;
       const previousToday = product.todayPaidDate === targetDailyDate ? (product.todayPaidAmountCents || 0) : 0;
-      const newToday = previousToday + paymentAmountCents;
+
+      const rawContrib =
+        (event.rawPayload?.contributionType as string) ||
+        (event.rawPayload?.['checkout[custom][contribution_type]'] as string) ||
+        (previousAllTime === 0 ? 'INITIAL_ENTRY' : 'DAILY');
+
+      const contributionType: RankingContributionType =
+        rawContrib === 'INITIAL_ENTRY' || rawContrib === 'ALL_TIME_BOOST' || rawContrib === 'DAILY'
+          ? (rawContrib as RankingContributionType)
+          : (previousAllTime === 0 ? 'INITIAL_ENTRY' : 'DAILY');
+
+      let newAllTime = previousAllTime;
+      let newToday = previousToday;
+
+      if (contributionType === 'INITIAL_ENTRY') {
+        newAllTime = previousAllTime + paymentAmountCents;
+        newToday = previousToday + paymentAmountCents;
+      } else if (contributionType === 'DAILY') {
+        // Daily participation applies strictly to target UTC daily leaderboard, DOES NOT inflate All-Time
+        newToday = previousToday + paymentAmountCents;
+      } else if (contributionType === 'ALL_TIME_BOOST') {
+        newAllTime = previousAllTime + paymentAmountCents;
+      }
 
       // MongoDB Multi-Document ACID Transaction with standalone fallback
       let session: mongoose.ClientSession | null = null;
@@ -651,7 +686,9 @@ export class PaymentService {
           [
             {
               productId: product._id,
-              founderId,
+              founderId: founderId || undefined,
+              payerEmail: (event.rawPayload?.email as string) || undefined,
+              contributionType,
               paymentType: 'RANKING',
               provider: event.provider,
               providerCustomerId: event.providerCustomerId || null,
@@ -675,7 +712,9 @@ export class PaymentService {
             {
               paymentId: paymentDoc._id,
               productId: product._id,
-              founderId,
+              founderId: founderId || undefined,
+              payerEmail: (event.rawPayload?.email as string) || undefined,
+              contributionType,
               amountCents: paymentAmountCents,
               qualifyingAmountCents: paymentAmountCents,
               targetDailyDate,
@@ -690,13 +729,14 @@ export class PaymentService {
           { session }
         );
 
-        // 3. Atomically Update Product Paid Ranking Totals & Dates
+        // 3. Atomically Update Product Paid Ranking Totals & Dates, and activate to LIVE
         const productUpdates: any = {
           $set: {
             paidRankingAmountCents: newAllTime,
             todayPaidAmountCents: newToday,
             todayPaidDate: targetDailyDate,
             lastPaidAt: now,
+            status: ProductStatus.LIVE,
             updatedAt: now,
           },
         };
@@ -724,7 +764,7 @@ export class PaymentService {
           [
             {
               productId: product._id,
-              userId: founderId,
+              userId: founderId || undefined,
               eventType: 'RANKING_PAYMENT_CONFIRMED',
               eventSource: EventSource.SPONSORED,
               metadata: {
@@ -732,6 +772,7 @@ export class PaymentService {
                 amountCents: paymentAmountCents,
                 newAllTimeCents: newAllTime,
                 targetDailyDate,
+                contributionType,
                 provider: event.provider,
                 providerPaymentId: event.providerPaymentId,
               },
@@ -741,7 +782,7 @@ export class PaymentService {
         );
 
         await session.commitTransaction();
-        logger.info({ productId: product._id, amountCents: paymentAmountCents }, 'Pay-to-Rank transaction committed');
+        logger.info({ productId: product._id, amountCents: paymentAmountCents, contributionType }, 'Pay-to-Rank transaction committed');
       } catch (txnErr: any) {
         if (session) {
           try {
@@ -757,7 +798,9 @@ export class PaymentService {
 
           const paymentDoc = await Payment.create({
             productId: product._id,
-            founderId,
+            founderId: founderId || undefined,
+            payerEmail: (event.rawPayload?.email as string) || undefined,
+            contributionType,
             paymentType: 'RANKING',
             provider: event.provider,
             providerCustomerId: event.providerCustomerId || null,
@@ -775,7 +818,9 @@ export class PaymentService {
           await RankingLedger.create({
             paymentId: paymentDoc._id,
             productId: product._id,
-            founderId,
+            founderId: founderId || undefined,
+            payerEmail: (event.rawPayload?.email as string) || undefined,
+            contributionType,
             amountCents: paymentAmountCents,
             qualifyingAmountCents: paymentAmountCents,
             targetDailyDate,
@@ -793,6 +838,7 @@ export class PaymentService {
               todayPaidAmountCents: newToday,
               todayPaidDate: targetDailyDate,
               lastPaidAt: now,
+              status: ProductStatus.LIVE,
               updatedAt: now,
             },
           };
@@ -808,7 +854,7 @@ export class PaymentService {
 
           await ActivityEvent.create({
             productId: product._id,
-            userId: founderId,
+            userId: founderId || undefined,
             eventType: 'RANKING_PAYMENT_CONFIRMED',
             eventSource: EventSource.SPONSORED,
             metadata: {
@@ -816,6 +862,7 @@ export class PaymentService {
               amountCents: paymentAmountCents,
               newAllTimeCents: newAllTime,
               targetDailyDate,
+              contributionType,
               provider: event.provider,
               providerPaymentId: event.providerPaymentId,
             },

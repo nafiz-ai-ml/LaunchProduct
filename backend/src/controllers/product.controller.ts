@@ -304,6 +304,38 @@ export class ProductController {
       next(error);
     }
   }
+
+  /**
+   * 8. POST /api/v1/products/public-submit
+   * Accountless product submission & Pay-to-Rank entry point.
+   */
+  async publicSubmit(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await productService.publicAccountlessSubmit({
+        name: req.body.name,
+        tagline: req.body.tagline,
+        description: req.body.description,
+        websiteUrl: req.body.websiteUrl,
+        categoryId: req.body.categoryId,
+        contactEmail: req.body.contactEmail,
+        logoUrl: req.body.logoUrl,
+        initialPaymentCents: req.body.initialPaymentCents,
+        provider: req.body.provider,
+        successUrl: req.body.successUrl,
+        cancelUrl: req.body.cancelUrl,
+      });
+
+      res.status(result.isExistingProduct ? 200 : 201).json({
+        success: true,
+        data: result,
+        meta: getMetadata(req, {
+          commercialDisclosure: 'Positions are determined by verified qualifying paid ranking amounts, not independent editorial endorsement.',
+        }),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const productController = new ProductController();

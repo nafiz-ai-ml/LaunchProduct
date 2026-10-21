@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
-import { getSessionUser } from '@/lib/auth-client';
-import { User } from '@/types';
 import {
   X,
   Zap,
@@ -13,165 +12,114 @@ import {
   AlertCircle,
   Loader2,
   DollarSign,
-  Info,
-  CheckCircle2,
   ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
 
-interface OutbidModalProps {
+export interface OutbidModalProps {
   isOpen: boolean;
   onClose: () => void;
+  productId?: string;
+  productName?: string;
+  currentRank?: number;
+  currentAmountCents?: number;
   targetProduct?: {
     id: string;
     name: string;
-    slug: string;
+    slug?: string;
     rank?: number;
     amountCents?: number;
     logoUrl?: string;
   } | null;
-  onAuthRequired: () => void;
-}
-
-interface UserProduct {
-  id?: string;
-  _id?: string;
-  name: string;
-  slug: string;
-  paidRankingAmountCents?: number;
+  onAuthRequired?: () => void;
 }
 
 export function OutbidModal({
   isOpen,
   onClose,
+  productId,
+  productName,
+  currentRank,
+  currentAmountCents,
   targetProduct,
   onAuthRequired,
 }: OutbidModalProps) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userProducts, setUserProducts] = useState<UserProduct[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string>('');
-  const [targetRank, setTargetRank] = useState<number>(targetProduct?.rank || 1);
-  const [customAmountDollars, setCustomAmountDollars] = useState<string>('5.99');
-  const [useCustomAmount, setUseCustomAmount] = useState<boolean>(false);
-  const [calcLoading, setCalcLoading] = useState<boolean>(false);
-  const [calcResult, setCalcResult] = useState<{
-    requiredPaymentCents: number;
-    formattedRequiredPayment: string;
-    currentAmountCents: number;
-    targetProductAmountCents: number;
-    isInitialPayment: boolean;
-  } | null>(null);
-  const [checkoutLoading, setCheckoutLoading] = useState<boolean>(false);
+  const router = useRouter();
+
+  // Resolve target properties from direct props or targetProduct
+  const resolvedRank = targetProduct?.rank ?? currentRank ?? 1;
+  const resolvedAmountCents = targetProduct?.amountCents ?? currentAmountCents ?? 599;
+  const resolvedName = targetProduct?.name ?? productName ?? 'Top Product';
+
+  // Minimum required to outbid: current bid + $1.00 (100 cents), but at least $5.99 (599 cents)
+  const minOutbidCents = Math.max(599, resolvedAmountCents + 100);
+  const minOutbidDollars = (minOutbidCents / 100).toFixed(2);
+
+  const [bidAmountDollars, setBidAmountDollars] = useState<string>(minOutbidDollars);
+  const [productUrl, setProductUrl] = useState<string>('');
+  const [payerEmail, setPayerEmail] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Load user and founder products
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let mounted = true;
-    async function loadData() {
-      try {
-        const user = await getSessionUser();
-        if (!mounted) return;
-        setCurrentUser(user);
-
-        if (user) {
-          const res = await apiClient.get('/products/me/mine');
-          if (res.data?.data?.products && Array.isArray(res.data.data.products)) {
-            setUserProducts(res.data.data.products);
-            if (res.data.data.products.length > 0 && !selectedProductId) {
-              setSelectedProductId(res.data.data.products[0]._id || res.data.data.products[0].id || '');
-            }
-          }
-        }
-      } catch {
-        // user not authenticated
-      }
-    }
-
-    loadData();
-    return () => {
-      mounted = false;
-    };
-  }, [isOpen, selectedProductId]);
-
-  // Recalculate outbid whenever selectedProductId or targetRank changes
-  useEffect(() => {
-    if (!isOpen || !selectedProductId) return;
-
-    let mounted = true;
-    async function fetchCalc() {
-      setCalcLoading(true);
-      setErrorMessage(null);
-      try {
-        const res = await apiClient.get('/leaderboards/outbid-calc', {
-          params: {
-            productId: selectedProductId,
-            targetRank: targetProduct?.rank || targetRank || 1,
-          },
-        });
-
-        if (mounted && res.data?.data) {
-          setCalcResult(res.data.data);
-          const reqDollars = (res.data.data.requiredPaymentCents / 100).toFixed(2);
-          if (!useCustomAmount) {
-            setCustomAmountDollars(reqDollars);
-          }
-        }
-      } catch (err: any) {
-        if (mounted) {
-          setErrorMessage(err.response?.data?.error?.message || 'Could not calculate outbid amount');
-        }
-      } finally {
-        if (mounted) setCalcLoading(false);
-      }
-    }
-
-    fetchCalc();
-    return () => {
-      mounted = false;
-    };
-  }, [isOpen, selectedProductId, targetRank, targetProduct, useCustomAmount]);
 
   if (!isOpen) return null;
 
-  const handleCheckout = async () => {
-    if (!currentUser) {
-      onAuthRequired();
-      return;
-    }
+  const handleOutbidRedirect = () => {
+    // If user wants full submission with this target bid
+    const params = new URLSearchParams();
+    if (productUrl) params.set('url', productUrl);
+    if (payerEmail) params.set('email', payerEmail);
+    if (bidAmountDollars) params.set('bid', bidAmountDollars);
+    router.push(`/submit?${params.toString()}`);
+    onClose();
+  };
 
-    if (!selectedProductId) {
-      setErrorMessage('Please select a product you own or submit one first');
-      return;
-    }
-
-    const dollarsNum = parseFloat(customAmountDollars);
-    if (isNaN(dollarsNum) || dollarsNum <= 0) {
-      setErrorMessage('Please enter a valid payment amount');
-      return;
-    }
-
-    const amountCents = Math.round(dollarsNum * 100);
-
-    setCheckoutLoading(true);
+  const handleDirectOutbidCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
     setErrorMessage(null);
 
+    const dollarsNum = parseFloat(bidAmountDollars);
+    if (isNaN(dollarsNum) || dollarsNum < minOutbidCents / 100) {
+      setErrorMessage(`Minimum outbid amount for rank #${resolvedRank} is $${minOutbidDollars}`);
+      return;
+    }
+
+    if (!productUrl.trim()) {
+      setErrorMessage('Please enter your product website URL');
+      return;
+    }
+
+    if (!payerEmail.trim() || !payerEmail.includes('@')) {
+      setErrorMessage('Please enter a valid contact email for your payment receipt');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const res = await apiClient.post('/payments/rank-checkout', {
-        productId: selectedProductId,
-        amountCents,
+      // Use publicAccountlessSubmit which detects existing products or creates a pending record and returns checkout
+      const amountCents = Math.round(dollarsNum * 100);
+      const res = await apiClient.post('/products/public-submit', {
+        name: productUrl.replace(/^https?:\/\//i, '').split('/')[0],
+        url: productUrl.startsWith('http') ? productUrl : `https://${productUrl}`,
+        tagline: 'Outbid submission via Pay-to-Rank',
+        categorySlug: 'saas',
+        contactEmail: payerEmail,
+        rankingAmountCents: amountCents,
         provider: 'paddle',
       });
 
       if (res.data?.data?.checkoutUrl) {
         window.location.href = res.data.data.checkoutUrl;
       } else {
-        setErrorMessage('Failed to generate checkout session');
+        // Fallback to submit form
+        handleOutbidRedirect();
       }
     } catch (err: any) {
-      setErrorMessage(err.response?.data?.error?.message || 'Checkout failed. Please try again.');
+      setErrorMessage(
+        err.response?.data?.error?.message ||
+          'Failed to initialize checkout. Please use the full submission form.'
+      );
     } finally {
-      setCheckoutLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -185,9 +133,11 @@ export function OutbidModal({
               <Zap className="w-5 h-5 text-amber-300" />
             </div>
             <div>
-              <h3 className="font-bold text-text-primary text-lg">Pay to Outbid & Rank</h3>
+              <h3 className="font-bold text-text-primary text-base sm:text-lg">
+                Outbid &amp; Claim Rank #{resolvedRank}
+              </h3>
               <p className="text-text-muted text-xs">
-                Transparent commercial ranking powered by verified payments
+                Accountless Pay-to-Rank • Instant placement upon confirmed payment
               </p>
             </div>
           </div>
@@ -201,171 +151,140 @@ export function OutbidModal({
 
         {/* Body */}
         <div className="p-6 space-y-5">
-          {/* Target Product Badge (if opened for a specific product) */}
-          {targetProduct && (
-            <div className="bg-surface-sunken p-3.5 rounded-xl border border-border flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-primary bg-primary-subtle px-2 py-0.5 rounded-md">
-                  #{targetProduct.rank || 1}
-                </span>
-                <div>
-                  <div className="text-xs text-text-muted">Target to Outbid</div>
-                  <div className="font-bold text-text-primary text-sm">{targetProduct.name}</div>
+          {/* Target Product Badge */}
+          <div className="bg-surface-sunken p-3.5 rounded-xl border border-border flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-sm font-bold text-primary bg-primary-subtle px-2.5 py-1 rounded-lg">
+                #{resolvedRank}
+              </span>
+              <div>
+                <div className="text-[11px] text-text-muted uppercase tracking-wider font-semibold">
+                  Current Leader
+                </div>
+                <div className="font-bold text-text-primary text-sm">
+                  {resolvedName}
                 </div>
               </div>
-              {targetProduct.amountCents !== undefined && (
-                <div className="text-right">
-                  <div className="text-xs text-text-muted">Current Bid</div>
-                  <div className="font-mono font-bold text-text-primary text-sm">
-                    ${(targetProduct.amountCents / 100).toFixed(2)}
-                  </div>
-                </div>
-              )}
             </div>
-          )}
-
-          {/* Product Selector */}
-          <div>
-            <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-2">
-              Select Your Product
-            </label>
-            {userProducts.length > 0 ? (
-              <select
-                value={selectedProductId}
-                onChange={(e) => setSelectedProductId(e.target.value)}
-                className="w-full bg-surface border border-border rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                {userProducts.map((p) => (
-                  <option key={p._id || p.id} value={p._id || p.id}>
-                    {p.name} (Current: ${( (p.paidRankingAmountCents || 0) / 100 ).toFixed(2)})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="p-4 rounded-xl bg-surface-sunken border border-border text-center">
-                <p className="text-xs text-text-muted mb-2">
-                  You don't have any submitted products yet.
-                </p>
-                <a
-                  href="/submit"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
-                >
-                  Submit a product to rank <ExternalLink className="w-3 h-3" />
-                </a>
+            <div className="text-right">
+              <div className="text-[11px] text-text-muted uppercase tracking-wider font-semibold">
+                Current Bid
               </div>
-            )}
+              <div className="font-mono font-bold text-text-primary text-sm">
+                ${(resolvedAmountCents / 100).toFixed(2)}
+              </div>
+            </div>
           </div>
 
-          {/* Calculation Breakdown Card */}
-          {calcResult && (
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-text-muted">Your Current Paid Total:</span>
-                <span className="font-mono font-semibold text-text-primary">
-                  ${(calcResult.currentAmountCents / 100).toFixed(2)}
+          <form onSubmit={handleDirectOutbidCheckout} className="space-y-4">
+            {/* Outbid Bid Amount Input */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                  Your Outbid Amount (USD)
+                </label>
+                <span className="text-[11px] text-primary font-medium">
+                  Min required: ${minOutbidDollars}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-text-muted">Target Position Amount:</span>
-                <span className="font-mono font-semibold text-text-primary">
-                  ${(calcResult.targetProductAmountCents / 100).toFixed(2)}
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted font-bold">
+                  $
                 </span>
-              </div>
-              <div className="border-t border-primary/10 pt-2 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-text-primary">
-                    {calcResult.isInitialPayment ? 'Minimum Initial Entry' : 'Minimum Outbid Step-Up'}:
-                  </span>
-                  <div className="text-[11px] text-text-muted">
-                    {calcResult.isInitialPayment ? 'Threshold: $5.99 min' : 'Difference + $1.00 min increment'}
-                  </div>
-                </div>
-                <span className="font-mono text-base font-extrabold text-primary">
-                  {calcResult.formattedRequiredPayment}
-                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={minOutbidDollars}
+                  value={bidAmountDollars}
+                  onChange={(e) => setBidAmountDollars(e.target.value)}
+                  className="w-full bg-surface border border-border rounded-xl pl-8 pr-4 py-2.5 text-sm font-mono font-bold text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  required
+                />
               </div>
             </div>
-          )}
 
-          {/* Custom Amount Field */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                Payment Amount (USD)
+            {/* Your Product URL */}
+            <div>
+              <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5">
+                Your Product Website URL
               </label>
+              <input
+                type="url"
+                value={productUrl}
+                onChange={(e) => setProductUrl(e.target.value)}
+                placeholder="https://yourproduct.com"
+                className="w-full bg-surface border border-border rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                required
+              />
+              <p className="text-[11px] text-text-muted mt-1">
+                If already listed, your product is automatically identified by canonical domain.
+              </p>
+            </div>
+
+            {/* Payer Email */}
+            <div>
+              <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5">
+                Founder / Contact Email
+              </label>
+              <input
+                type="email"
+                value={payerEmail}
+                onChange={(e) => setPayerEmail(e.target.value)}
+                placeholder="founder@yourproduct.com"
+                className="w-full bg-surface border border-border rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                required
+              />
+              <p className="text-[11px] text-text-muted mt-1">
+                For Merchant of Record payment receipt and verification. No account required.
+              </p>
+            </div>
+
+            {errorMessage && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-sm shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Preparing Checkout...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 text-amber-300" />
+                    <span>Pay ${bidAmountDollars} to Claim #{resolvedRank}</span>
+                  </>
+                )}
+              </button>
+
               <button
                 type="button"
-                onClick={() => {
-                  setUseCustomAmount(!useCustomAmount);
-                  if (calcResult) {
-                    setCustomAmountDollars((calcResult.requiredPaymentCents / 100).toFixed(2));
-                  }
-                }}
-                className="text-[11px] font-medium text-primary hover:underline"
+                onClick={handleOutbidRedirect}
+                className="py-3 px-4 rounded-xl bg-surface-sunken hover:bg-surface border border-border text-text-secondary hover:text-text-primary font-medium text-xs transition-colors flex items-center justify-center gap-1.5"
               >
-                {useCustomAmount ? 'Reset to Min Required' : 'Enter Custom Bid'}
+                <span>Full Submit Form</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-text-muted font-mono">
-                $
-              </div>
-              <input
-                type="number"
-                step="0.01"
-                min="1.00"
-                value={customAmountDollars}
-                onChange={(e) => {
-                  setUseCustomAmount(true);
-                  setCustomAmountDollars(e.target.value);
-                }}
-                className="w-full pl-8 pr-4 py-2.5 bg-surface border border-border rounded-xl font-mono text-base font-bold text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                placeholder="5.99"
-              />
-            </div>
-            <p className="text-[11px] text-text-muted mt-1.5 flex items-center gap-1">
+          </form>
+
+          {/* Trust badges */}
+          <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] text-text-muted">
+            <span className="flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              100% applies to your All-Time and Today's UTC leaderboard immediately upon confirmation.
-            </p>
+              <span>Merchant of Record Verified</span>
+            </span>
+            <span>No Account Needed</span>
           </div>
-
-          {/* Error Message */}
-          {errorMessage && (
-            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 p-3 rounded-xl text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="bg-surface-sunken p-5 border-t border-border flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-border text-xs font-semibold text-text-muted hover:text-text-primary hover:bg-surface transition-colors"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCheckout}
-            disabled={checkoutLoading || calcLoading || (userProducts.length === 0 && Boolean(currentUser))}
-            className="flex-1 max-w-xs px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {checkoutLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Creating Checkout...</span>
-              </>
-            ) : (
-              <>
-                <span>Confirm & Pay ${parseFloat(customAmountDollars || '0').toFixed(2)}</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
         </div>
       </div>
     </div>

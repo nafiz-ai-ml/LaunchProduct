@@ -7,7 +7,9 @@ export interface IPayment {
   _id: Types.ObjectId;
   productId: Types.ObjectId;
   campaignId?: Types.ObjectId | null;
-  founderId: Types.ObjectId;
+  founderId?: Types.ObjectId;
+  payerEmail?: string;
+  contributionType?: 'INITIAL_ENTRY' | 'DAILY' | 'ALL_TIME_BOOST';
   paymentType: 'RANKING' | 'SPONSORSHIP';
   provider: PaymentProvider;
   providerCustomerId?: string;
@@ -41,7 +43,19 @@ const PaymentSchema = new Schema<IPayment>(
     founderId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Founder reference is required'],
+      default: null,
+      required: false,
+    },
+    payerEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: null,
+    },
+    contributionType: {
+      type: String,
+      enum: ['INITIAL_ENTRY', 'DAILY', 'ALL_TIME_BOOST'],
+      default: 'DAILY',
     },
     paymentType: {
       type: String,

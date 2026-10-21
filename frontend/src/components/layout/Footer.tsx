@@ -26,23 +26,23 @@ export function Footer() {
   }
 
   const categories = [
-    { name: 'AI Agents & Tools', href: '/categories/ai-tools' },
-    { name: 'Developer Utilities', href: '/categories/developer-tools' },
-    { name: 'SaaS & Enterprise B2B', href: '/categories/saas-b2b' },
-    { name: 'Productivity Systems', href: '/categories/productivity' },
-    { name: 'Marketing & Sales', href: '/categories/marketing-sales' },
-    { name: 'Design & Creative', href: '/categories/design-creative' },
-    { name: 'Analytics & Data', href: '/categories/analytics-data' },
-    { name: 'Security & Privacy', href: '/categories/security-privacy' },
+    { name: 'AI Tools', href: '/?category=ai-tools' },
+    { name: 'AI Agents', href: '/?category=ai-agents' },
+    { name: 'SaaS', href: '/?category=saas' },
+    { name: 'Developer Tools', href: '/?category=developer-tools' },
+    { name: 'Productivity', href: '/?category=productivity' },
+    { name: 'Marketing Tools', href: '/?category=marketing-tools' },
+    { name: 'SEO Tools', href: '/?category=seo-tools' },
+    { name: 'Design Tools', href: '/?category=design-tools' },
   ];
 
   const productLinks = [
-    { name: 'Daily Leaderboard', href: '/leaderboards' },
-    { name: 'Trending Launches', href: '/trending' },
-    { name: 'Browse Categories', href: '/categories' },
-    { name: 'Submit a Launch', href: '/submit' },
-    { name: 'Sponsorship & Promote', href: '/promote' },
-    { name: 'Founder Dashboard', href: '/dashboard' },
+    { name: "Today's Leaderboard", href: '/?tab=today' },
+    { name: 'All-Time Leaderboard', href: '/?tab=all-time' },
+    { name: 'Daily Archive', href: '/?tab=archive' },
+    { name: 'Submit & Rank Product', href: '/submit' },
+    { name: 'Ranking Rules', href: '/rules' },
+    { name: 'Platform FAQ', href: '/faq' },
   ];
 
   interface FooterLink {
@@ -52,11 +52,12 @@ export function Footer() {
   }
 
   const resourceLinks: FooterLink[] = [
-    { name: 'Anti-Fraud Engine', href: '/anti-fraud' },
-    { name: 'Platform Guidelines', href: '/terms' },
-    { name: 'Privacy Policy', href: '/privacy' },
+    { name: 'Ranking Rules', href: '/rules' },
+    { name: 'Platform FAQ', href: '/faq' },
+    { name: 'About LaunchProduct', href: '/about' },
     { name: 'Terms of Service', href: '/terms' },
-    { name: 'Sponsorship Inquiries', href: '/promote' },
+    { name: 'Privacy Policy', href: '/privacy' },
+    { name: 'Legal Imprint', href: '/imprint' },
   ];
 
   return (

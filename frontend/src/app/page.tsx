@@ -1,439 +1,713 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { ProductCard } from '@/components/product/ProductCard';
-import { AuthModal } from '@/components/auth/AuthModal';
-import { CustomSelect } from '@/components/ui/CustomSelect';
-import { LandingSections } from '@/components/home/LandingSections';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
-import { Product, Category } from '@/types';
+import { OutbidModal } from '@/components/leaderboard/OutbidModal';
 import {
-  Flame,
-  ArrowRight,
+  Trophy,
+  Medal,
+  Award,
+  Calendar,
+  Clock,
+  ExternalLink,
   ShieldCheck,
   Zap,
+  Flame,
+  ArrowRight,
   TrendingUp,
-  Award,
-  Layers,
-  Search,
   Sparkles,
-  SlidersHorizontal,
-  ChevronDown,
+  RefreshCw,
+  Info,
+  DollarSign,
   Plus,
+  Layers,
 } from 'lucide-react';
 
-const FALLBACK_CATEGORIES = [
-  'All Launches',
-  'AI Tools',
-  'AI Agents',
-  'SaaS',
-  'Developer Tools',
-  'Productivity',
-  'Marketing Tools',
-  'SEO Tools',
-  'Design Tools',
+export type BoardType = 'today' | 'all-time' | 'archive';
+
+interface LeaderboardItemData {
+  rank: number;
+  score: number;
+  amountCents?: number;
+  formattedAmount?: string;
+  voteCount: number;
+  product: {
+    _id?: string;
+    id?: string;
+    name: string;
+    slug: string;
+    tagline: string;
+    logoUrl?: string;
+    media?: {
+      logoUrl?: string;
+      bannerUrl?: string;
+    };
+    category?: {
+      name?: string;
+      slug?: string;
+    } | string;
+    websiteUrl?: string;
+    canonicalDomain?: string;
+  };
+}
+
+const CATEGORIES = [
+  { name: 'All Launches', slug: 'all' },
+  { name: 'AI Tools', slug: 'ai-tools' },
+  { name: 'AI Agents', slug: 'ai-agents' },
+  { name: 'SaaS', slug: 'saas' },
+  { name: 'Developer Tools', slug: 'developer-tools' },
+  { name: 'Productivity', slug: 'productivity' },
+  { name: 'Marketing Tools', slug: 'marketing-tools' },
+  { name: 'SEO Tools', slug: 'seo-tools' },
+  { name: 'Design Tools', slug: 'design-tools' },
 ];
 
-const INITIAL_FALLBACK_PRODUCTS: Product[] = [
+const FALLBACK_ITEMS: LeaderboardItemData[] = [
   {
-    id: 'prod-sponsor-1',
-    name: 'VectorPulse Cloud',
-    slug: 'vectorpulse-cloud',
-    tagline: 'Serverless vector database engine with automated sub-millisecond similarity indexing',
-    description: 'Ultra-low latency vector embeddings storage built specifically for high-throughput LLM reasoning pipelines and autonomous agents.',
-    category: 'Developer Tools',
-    pricing: { model: 'Freemium' },
-    upvotesCount: 412,
-    reviewsCount: 64,
-    isVerified: true,
-    isSponsored: true,
-    sponsorTier: 'LAUNCH_BOOST',
-    logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=128&auto=format&fit=crop&q=80',
-    websiteUrl: 'https://launchproduct.io',
-    tags: ['AI Engine', 'Database', 'TypeScript'],
-  },
-  {
-    id: 'prod-1',
-    name: 'DevSync AI',
-    slug: 'devsync-ai',
-    tagline: 'Autonomous code review agent that spots performance regressions before merging',
-    description: 'DevSync connects directly to your Git repositories, analyzing PR AST diffs and predicting bundle-size regressions, SQL N+1 bugs, and memory leaks.',
-    category: 'Developer Tools',
-    pricing: { model: 'Freemium' },
-    upvotesCount: 388,
-    reviewsCount: 52,
-    isVerified: true,
     rank: 1,
-    logoUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=128&auto=format&fit=crop&q=80',
-    websiteUrl: 'https://launchproduct.io',
-    tags: ['DevTools', 'AI Agents', 'GitHub'],
+    score: 120.0,
+    amountCents: 12000,
+    formattedAmount: '$120.00',
+    voteCount: 412,
+    product: {
+      id: 'prod-sponsor-1',
+      name: 'VectorPulse Cloud',
+      slug: 'vectorpulse-cloud',
+      tagline: 'Serverless vector database engine with automated sub-millisecond similarity indexing',
+      logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=128&auto=format&fit=crop&q=80',
+      category: 'Developer Tools',
+      websiteUrl: 'https://vectorpulse.cloud',
+      canonicalDomain: 'vectorpulse.cloud',
+    },
   },
   {
-    id: 'prod-2',
-    name: 'PromptCanvas',
-    slug: 'promptcanvas',
-    tagline: 'Visual node-based IDE for building, testing, and versioning production LLM chains',
-    description: 'The standard workspace for AI engineers: drag-and-drop prompt chaining, real-time token economics inspection, and automated unit testing suites.',
-    category: 'AI Tools',
-    pricing: { model: 'Freemium' },
-    upvotesCount: 295,
-    reviewsCount: 39,
-    isVerified: true,
     rank: 2,
-    logoUrl: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=128&auto=format&fit=crop&q=80',
-    websiteUrl: 'https://launchproduct.io',
-    tags: ['Prompt Engineering', 'LLM', 'Productivity'],
+    score: 85.0,
+    amountCents: 8500,
+    formattedAmount: '$85.00',
+    voteCount: 388,
+    product: {
+      id: 'prod-1',
+      name: 'DevSync AI',
+      slug: 'devsync-ai',
+      tagline: 'Autonomous code review agent that spots performance regressions before merging',
+      logoUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=128&auto=format&fit=crop&q=80',
+      category: 'Developer Tools',
+      websiteUrl: 'https://devsync.ai',
+      canonicalDomain: 'devsync.ai',
+    },
   },
   {
-    id: 'prod-3',
-    name: 'ShipFast UI',
-    slug: 'shipfast-ui',
-    tagline: 'Accessible React & Tailwind component library for hyper-growth SaaS platforms',
-    description: 'Over 120+ meticulously crafted, conversion-optimized SaaS components with dark mode, full keyboard navigation, and seamless Figma synchronization.',
-    category: 'Design Tools',
-    pricing: { model: 'Paid', startingPrice: 49 },
-    upvotesCount: 247,
-    reviewsCount: 31,
-    isVerified: true,
     rank: 3,
-    logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=128&auto=format&fit=crop&q=80',
-    websiteUrl: 'https://launchproduct.io',
-    tags: ['Tailwind CSS', 'React 18', 'Design System'],
+    score: 45.0,
+    amountCents: 4500,
+    formattedAmount: '$45.00',
+    voteCount: 295,
+    product: {
+      id: 'prod-2',
+      name: 'PromptCanvas',
+      slug: 'promptcanvas',
+      tagline: 'Visual node-based IDE for building, testing, and versioning production LLM chains',
+      logoUrl: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=128&auto=format&fit=crop&q=80',
+      category: 'AI Tools',
+      websiteUrl: 'https://promptcanvas.dev',
+      canonicalDomain: 'promptcanvas.dev',
+    },
   },
   {
-    id: 'prod-4',
-    name: 'AuditShield',
-    slug: 'auditshield',
-    tagline: 'Zero-trust API key scanner and cryptographic secret rotation service',
-    description: 'Continuous runtime secret detection preventing accidental leaks in commit histories, CI/CD logs, Docker containers, and Slack webhooks.',
-    category: 'Developer Tools',
-    pricing: { model: 'Open Source' },
-    upvotesCount: 184,
-    reviewsCount: 22,
-    isVerified: false,
     rank: 4,
-    logoUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=128&auto=format&fit=crop&q=80',
-    websiteUrl: 'https://launchproduct.io',
-    tags: ['Cybersecurity', 'DevSecOps', 'Open Source'],
+    score: 25.0,
+    amountCents: 2500,
+    formattedAmount: '$25.00',
+    voteCount: 247,
+    product: {
+      id: 'prod-3',
+      name: 'ShipFast UI',
+      slug: 'shipfast-ui',
+      tagline: 'Accessible React & Tailwind component library for hyper-growth SaaS platforms',
+      logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=128&auto=format&fit=crop&q=80',
+      category: 'Design Tools',
+      websiteUrl: 'https://shipfastui.com',
+      canonicalDomain: 'shipfastui.com',
+    },
   },
   {
-    id: 'prod-5',
-    name: 'MetricFlow',
-    slug: 'metricflow',
-    tagline: 'Real-time revenue attribution and churn prediction for subscription founders',
-    description: 'Direct webhook integration with Stripe and Paddle providing instant cohort retention analytics and churn risk early warnings.',
-    category: 'SaaS',
-    pricing: { model: 'Freemium' },
-    upvotesCount: 162,
-    reviewsCount: 19,
-    isVerified: true,
     rank: 5,
-    logoUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=128&auto=format&fit=crop&q=80',
-    websiteUrl: 'https://launchproduct.io',
-    tags: ['SaaS Metrics', 'Paddle', 'Growth'],
+    score: 15.0,
+    amountCents: 1500,
+    formattedAmount: '$15.00',
+    voteCount: 184,
+    product: {
+      id: 'prod-4',
+      name: 'AuditShield',
+      slug: 'auditshield',
+      tagline: 'Zero-trust API key scanner and cryptographic secret rotation service',
+      logoUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=128&auto=format&fit=crop&q=80',
+      category: 'Developer Tools',
+      websiteUrl: 'https://auditshield.io',
+      canonicalDomain: 'auditshield.io',
+    },
   },
 ];
 
 export default function HomePage() {
-  const [products, setProducts] = useState<Product[]>(INITIAL_FALLBACK_PRODUCTS);
-  const [categories, setCategories] = useState<string[]>(FALLBACK_CATEGORIES);
-  const [selectedCategory, setSelectedCategory] = useState<string>('All Launches');
-  const [activeTab, setActiveTab] = useState<'today' | 'yesterday' | 'week'>('today');
-  const [sortBy, setSortBy] = useState<'trending' | 'top' | 'newest'>('trending');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const tabParam = (searchParams?.get('tab') as BoardType) || 'today';
+  const categoryParam = searchParams?.get('category') || 'all';
+
+  const [activeBoard, setActiveBoard] = useState<BoardType>(tabParam);
+  const [selectedCategory, setSelectedCategory] = useState<string>(categoryParam);
+  const [leaderboardItems, setLeaderboardItems] = useState<LeaderboardItemData[]>(FALLBACK_ITEMS);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [utcCountdown, setUtcCountdown] = useState<string>('');
+  const [dateStr, setDateStr] = useState<string>('');
 
-  // Fetch real categories and products from live Express REST API
+  // Outbid Modal State
+  const [selectedProductForOutbid, setSelectedProductForOutbid] = useState<{
+    id: string;
+    name: string;
+    currentRank: number;
+    amountCents: number;
+  } | null>(null);
+
+  // Sync state with search params
   useEffect(() => {
-    let isMounted = true;
+    if (tabParam) setActiveBoard(tabParam);
+    if (categoryParam) setSelectedCategory(categoryParam);
+  }, [tabParam, categoryParam]);
 
-    async function loadData() {
-      try {
-        setIsLoading(true);
-        // Load categories
-        try {
-          const catRes = await apiClient.get('/categories');
-          const catItems: Category[] = catRes.data?.data || [];
-          if (isMounted && catItems.length > 0) {
-            setCategories(['All Launches', ...catItems.map((c) => c.name)]);
-          }
-        } catch {
-          // fallback stays
-        }
-
-        // Load products
-        const params: any = { limit: 25 };
-        if (sortBy === 'trending') params.sortBy = 'trending';
-        if (sortBy === 'top') params.sortBy = 'top';
-        if (sortBy === 'newest') params.sortBy = 'newest';
-
-        const prodRes = await apiClient.get('/products', { params });
-        const fetchedProducts: Product[] = prodRes.data?.data?.products || prodRes.data?.data || [];
-
-        if (isMounted && fetchedProducts.length > 0) {
-          setProducts(fetchedProducts);
-        }
-      } catch {
-        // Fallback initialized data stays active
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadData();
-
-    return () => {
-      isMounted = false;
+  // Live UTC Countdown ticker to midnight
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const nextMidnight = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0)
+      );
+      const diffMs = nextMidnight.getTime() - now.getTime();
+      const hours = Math.floor(diffMs / 3600000);
+      const minutes = Math.floor((diffMs % 3600000) / 60000);
+      const seconds = Math.floor((diffMs % 60000) / 1000);
+      setUtcCountdown(
+        `${hours.toString().padStart(2, '0')}:${minutes
+          .toString()
+          .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      );
+      setDateStr(now.toISOString().split('T')[0]);
     };
-  }, [sortBy]);
 
-  // Filter products by selected category and active timeframe
-  const filteredProducts = useMemo(() => {
-    return products.filter((item) => {
-      const categoryName =
-        typeof item.category === 'object' && item.category !== null
-          ? (item.category as any).name
-          : item.category;
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-      const matchesCategory =
-        selectedCategory === 'All Launches' ||
-        categoryName?.toLowerCase() === selectedCategory.toLowerCase();
-
-      let matchesTimeframe = true;
-      if (item.createdAt) {
-        const itemDate = new Date(item.createdAt);
-        const now = new Date();
-        const diffMs = now.getTime() - itemDate.getTime();
-        const diffDays = diffMs / (1000 * 60 * 60 * 24);
-        if (activeTab === 'today') {
-          matchesTimeframe = diffDays <= 1;
-        } else if (activeTab === 'yesterday') {
-          matchesTimeframe = diffDays > 1 && diffDays <= 2;
-        } else if (activeTab === 'week') {
-          matchesTimeframe = diffDays <= 7;
-        }
+  // Fetch real Pay-to-Rank data from live Express API
+  const fetchLeaderboard = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      let endpoint = '/leaderboards/today';
+      if (activeBoard === 'all-time') {
+        endpoint = '/leaderboards/all-time';
+      } else if (activeBoard === 'archive') {
+        endpoint = '/leaderboards/historical';
       }
 
-      return matchesCategory && matchesTimeframe;
-    });
-  }, [products, selectedCategory, activeTab]);
+      if (selectedCategory && selectedCategory !== 'all' && activeBoard !== 'archive') {
+        endpoint = `/leaderboards/category/${selectedCategory}`;
+      }
 
-  // Separate Discovery Engines: Top Sponsored vs Organic Feed
-  const sponsoredProduct = useMemo(
-    () => filteredProducts.find((p) => p.isSponsored),
-    [filteredProducts]
-  );
+      const res = await apiClient.get(endpoint, {
+        params: { limit: 50 },
+      });
 
-  const organicProducts = useMemo(
-    () => filteredProducts.filter((p) => !p.isSponsored),
-    [filteredProducts]
-  );
+      const items = res.data?.data?.items || res.data?.data?.leaderboard || [];
+      if (Array.isArray(items) && items.length > 0) {
+        setLeaderboardItems(items);
+      }
+    } catch {
+      // Fallback data remains active gracefully
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeBoard, selectedCategory]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  const handleTabChange = (newTab: BoardType) => {
+    setActiveBoard(newTab);
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    params.set('tab', newTab);
+    if (selectedCategory && selectedCategory !== 'all') {
+      params.set('category', selectedCategory);
+    }
+    router.push(`/?${params.toString()}`);
+  };
+
+  const handleCategoryChange = (slug: string) => {
+    setSelectedCategory(slug);
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    if (slug === 'all') {
+      params.delete('category');
+    } else {
+      params.set('category', slug);
+    }
+    router.push(`/?${params.toString()}`);
+  };
+
+  // Top 3 Podium Products
+  const podium = useMemo(() => {
+    return {
+      first: leaderboardItems.find((i) => i.rank === 1),
+      second: leaderboardItems.find((i) => i.rank === 2),
+      third: leaderboardItems.find((i) => i.rank === 3),
+    };
+  }, [leaderboardItems]);
+
+  const runnersUp = useMemo(() => {
+    return leaderboardItems.filter((i) => i.rank > 3);
+  }, [leaderboardItems]);
 
   return (
-    <div className="bg-bg text-text-primary flex flex-col font-sans selection:bg-primary selection:text-white w-full max-w-full overflow-x-clip">
-      {/* Main Container with generous side padding so content never touches screen borders */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-8 md:px-10 lg:px-12 xl:px-14 py-8 w-full max-w-full">
-        {/* Marketplace Hero Banner / Value Prop (Warm Obsidian Sunset Card) */}
-        <section className="relative rounded-2xl bg-[#0D0C0B] p-6 sm:p-8 md:p-10 text-white shadow-xl overflow-hidden mb-8 border border-stone-800 w-full max-w-full">
-          {/* Subtle warm sunset glow overlay */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,rgba(255,117,31,0.22),rgba(255,255,255,0))] pointer-events-none" />
-          {/* Fine subtle developer grid pattern */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
-          
-          <div className="relative z-10 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/25 mb-4 backdrop-blur-sm">
-              <Zap className="w-3.5 h-3.5 text-orange-400" />
-              <span>Transparent Pay-to-Rank Product Discovery</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white leading-tight">
-              Where High-Integrity <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff751f] via-amber-400 to-[#ff9f43]">Products Rank</span> &amp; Compete
-            </h1>
-
-            <p className="mt-3 text-xs sm:text-sm text-stone-300 leading-relaxed max-w-xl font-normal">
-              Discover vetted AI tools, developer utilities, and indie SaaS startups. Leaderboard positions are determined strictly by verified qualifying paid ranking amounts with UTC midnight daily resets.
-            </p>
-
-            <div className="mt-6 flex flex-wrap items-center gap-4">
-              <Link
-                href="/leaderboards"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff751f] via-amber-500 to-[#ea580c] hover:opacity-95 text-white text-xs sm:text-sm font-semibold shadow-md shadow-orange-500/25 transition-all duration-200 focus-ring"
-              >
-                <span>Explore Live Leaderboards</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-stone-300">
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  Commercial Transparency
-                </span>
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  $5.99 Min Initial Entry
-                </span>
-              </div>
-            </div>
+    <div className="w-full max-w-full px-4 sm:px-8 py-6 space-y-6">
+      {/* Top Banner & Board Controls Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-border/80">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
+              <Zap className="w-3 h-3 text-primary" />
+              Pay-to-Rank Discovery
+            </span>
+            <span className="text-xs text-text-muted">·</span>
+            <span className="text-xs text-text-muted font-medium">$5.99 min initial entry</span>
           </div>
-        </section>
+          <h1 className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight">
+            {activeBoard === 'today'
+              ? "Today's Leaderboard"
+              : activeBoard === 'all-time'
+              ? 'All-Time Leaderboard'
+              : 'Daily Archive'}
+          </h1>
+          <p className="text-xs sm:text-sm text-text-secondary mt-1">
+            Rank is determined strictly by verified qualifying paid ranking amounts with midnight UTC resets.
+          </p>
+        </div>
 
-        {/* Category Navigation Pills (Horizontal scrollable) */}
-        <section id="categories" className="mb-6 w-full max-w-full overflow-hidden">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none w-full max-w-full">
-            {categories.map((cat) => {
-              const isSelected = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-motion-fast focus-ring ${
-                    isSelected
-                      ? 'bg-primary text-white shadow-xs'
-                      : 'bg-surface hover:bg-surface-sunken text-text-secondary hover:text-text-primary border border-border'
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Feed Controls Header */}
-        <section id="trending" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 border-b border-border pb-4 w-full max-w-full">
-          {/* Time Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-surface border border-border rounded-xl w-full sm:w-auto overflow-x-auto scrollbar-none">
+        {/* Board Switcher Tabs & Live UTC Reset Counter */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center p-1 bg-surface border border-border rounded-xl">
             <button
-              onClick={() => setActiveTab('today')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-motion-fast focus-ring whitespace-nowrap ${
-                activeTab === 'today'
+              onClick={() => handleTabChange('today')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeBoard === 'today'
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-sunken'
               }`}
             >
-              Today&apos;s Launches
+              <Zap className="w-3.5 h-3.5" />
+              <span>Today</span>
             </button>
             <button
-              onClick={() => setActiveTab('yesterday')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-motion-fast focus-ring whitespace-nowrap ${
-                activeTab === 'yesterday'
+              onClick={() => handleTabChange('all-time')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeBoard === 'all-time'
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-sunken'
               }`}
             >
-              Yesterday
+              <Award className="w-3.5 h-3.5" />
+              <span>All-Time</span>
             </button>
             <button
-              onClick={() => setActiveTab('week')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-motion-fast focus-ring whitespace-nowrap ${
-                activeTab === 'week'
+              onClick={() => handleTabChange('archive')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeBoard === 'archive'
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-sunken'
               }`}
             >
-              This Week
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Archive</span>
             </button>
           </div>
 
-          {/* Sort selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted font-medium hidden sm:inline">Sort by:</span>
-            <CustomSelect
-              value={sortBy}
-              onChange={(val) => setSortBy(val as any)}
-              size="sm"
-              options={[
-                { value: 'trending', label: 'Trending Velocity', icon: Flame },
-                { value: 'top', label: 'Top Upvoted', icon: TrendingUp },
-                { value: 'newest', label: 'Newest', icon: Sparkles },
-              ]}
-            />
-          </div>
-        </section>
-
-        {/* Discovery Feed: Separation of Engines */}
-        <section className="space-y-4">
-          {/* Top Slot: Sponsored Boost (if present) */}
-          {sponsoredProduct && (
-            <div className="mb-6">
-              <ProductCard
-                product={sponsoredProduct}
-                isSponsored={true}
-                sponsorBadge="Featured Launch Boost"
-                onAuthRequired={() => setIsAuthModalOpen(true)}
-              />
+          {/* UTC Midnight Reset Pill */}
+          {activeBoard === 'today' && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-600 dark:text-amber-400 text-xs font-semibold">
+              <Clock className="w-3.5 h-3.5 animate-pulse" />
+              <span>Reset in {utcCountdown}</span>
             </div>
           )}
+        </div>
+      </div>
 
-          {/* Loading Skeleton Placeholder with Gradient Shimmer */}
-          {isLoading && (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="rounded-2xl border border-border bg-surface p-5 flex items-center gap-4 relative overflow-hidden"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-surface-sunken skeleton-shimmer shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-48 rounded bg-surface-sunken skeleton-shimmer" />
-                    <div className="h-3 w-3/4 rounded bg-surface-sunken skeleton-shimmer" />
+      {/* Category Navigation Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        {CATEGORIES.map((cat) => {
+          const isSelected = selectedCategory === cat.slug;
+          return (
+            <button
+              key={cat.slug}
+              onClick={() => handleCategoryChange(cat.slug)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                isSelected
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'bg-surface hover:bg-surface-sunken text-text-secondary hover:text-text-primary border border-border'
+              }`}
+            >
+              {cat.name}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Top 3 Podium (Visible when loading finishes and products exist) */}
+      {!isLoading && podium.first && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          {/* #2 Silver Runner Up */}
+          {podium.second && (
+            <div className="order-2 md:order-1 rounded-2xl p-5 bg-surface border border-slate-300/80 dark:border-slate-700/80 shadow-sm relative flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  <Medal className="w-3.5 h-3.5 text-slate-400" />
+                  #2 Silver Rank
+                </span>
+                <span className="font-mono text-sm font-black text-slate-600 dark:text-slate-300">
+                  {podium.second.formattedAmount || `$${podium.second.score.toFixed(2)}`}
+                </span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  {podium.second.product.logoUrl && (
+                    <img
+                      src={podium.second.product.logoUrl}
+                      alt={podium.second.product.name}
+                      className="w-10 h-10 rounded-xl object-cover border border-border"
+                    />
+                  )}
+                  <div>
+                    <h3 className="font-bold text-sm text-text-primary truncate">
+                      {podium.second.product.name}
+                    </h3>
+                    <span className="text-[11px] text-text-muted">
+                      {typeof podium.second.product.category === 'object'
+                        ? podium.second.product.category?.name
+                        : podium.second.product.category}
+                    </span>
                   </div>
-                  <div className="w-16 h-12 rounded-xl bg-surface-sunken skeleton-shimmer shrink-0" />
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Organic Product Feed */}
-          {!isLoading && organicProducts.length > 0 && (
-            <div className="space-y-3">
-              {organicProducts.map((product, index) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  rank={index + 1}
-                  onAuthRequired={() => setIsAuthModalOpen(true)}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Empty Filter State */}
-          {!isLoading && filteredProducts.length === 0 && (
-            <div className="text-center py-16 px-4 bg-surface border border-border rounded-2xl space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-primary-subtle text-primary flex items-center justify-center mx-auto">
-                <Search className="w-6 h-6" />
+                <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+                  {podium.second.product.tagline}
+                </p>
               </div>
-              <h3 className="text-base font-bold text-text-primary">
-                No products found
-              </h3>
-              <p className="text-xs text-text-secondary max-w-sm mx-auto">
-                No launches matched your filter criteria for {selectedCategory}. Try selecting another category or submit your product.
-              </p>
-              <Link
-                href="/submit"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary-hover px-4 py-2 rounded-xl transition-motion-base shadow-sm focus-ring"
-              >
-                <Plus className="w-3.5 h-3.5 text-white" />
-                <span>Submit a Product</span>
-              </Link>
+              <div className="pt-4 flex items-center justify-between border-t border-border/60 mt-3">
+                <a
+                  href={podium.second.product.websiteUrl || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-text-muted hover:text-text-primary inline-flex items-center gap-1"
+                >
+                  <span>Visit</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                <button
+                  onClick={() =>
+                    setSelectedProductForOutbid({
+                      id: podium.second!.product.id || podium.second!.product._id || '',
+                      name: podium.second!.product.name,
+                      currentRank: 2,
+                      amountCents: podium.second!.amountCents || Math.round(podium.second!.score * 100),
+                    })
+                  }
+                  className="px-3 py-1.5 rounded-lg bg-surface border border-border hover:border-primary text-text-primary hover:text-primary text-xs font-semibold transition-colors"
+                >
+                  Outbid #2
+                </button>
+              </div>
             </div>
           )}
-        </section>
 
-        {/* Rich SaaS Landing Page Value Sections (Bento Pillars, Workflow, Anti-Fraud Matrix, Testimonials, FAQ, CTA Banner) */}
-        <LandingSections />
-      </main>
+          {/* #1 Gold Champion */}
+          <div className="order-1 md:order-2 rounded-2xl p-6 bg-gradient-to-b from-amber-500/10 via-surface to-surface border-2 border-amber-500/40 shadow-md relative flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                <Trophy className="w-4 h-4 text-amber-500" />
+                #1 Champion
+              </span>
+              <span className="font-mono text-base font-black text-amber-500">
+                {podium.first.formattedAmount || `$${podium.first.score.toFixed(2)}`}
+              </span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                {podium.first.product.logoUrl && (
+                  <img
+                    src={podium.first.product.logoUrl}
+                    alt={podium.first.product.name}
+                    className="w-12 h-12 rounded-xl object-cover border border-amber-500/30"
+                  />
+                )}
+                <div>
+                  <h3 className="font-extrabold text-base text-text-primary truncate">
+                    {podium.first.product.name}
+                  </h3>
+                  <span className="text-xs text-amber-500 font-semibold">
+                    {typeof podium.first.product.category === 'object'
+                      ? podium.first.product.category?.name
+                      : podium.first.product.category}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+                {podium.first.product.tagline}
+              </p>
+            </div>
+            <div className="pt-4 flex items-center justify-between border-t border-border/60 mt-3">
+              <a
+                href={podium.first.product.websiteUrl || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold text-text-muted hover:text-text-primary inline-flex items-center gap-1"
+              >
+                <span>Visit site</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <button
+                onClick={() =>
+                  setSelectedProductForOutbid({
+                    id: podium.first!.product.id || podium.first!.product._id || '',
+                    name: podium.first!.product.name,
+                    currentRank: 1,
+                    amountCents: podium.first!.amountCents || Math.round(podium.first!.score * 100),
+                  })
+                }
+                className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                Claim #1 Rank
+              </button>
+            </div>
+          </div>
 
-      {/* Reusable Auth Modal for Non-Logged-In Upvotes */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        title="Sign in to Upvote"
-        subtitle="Authenticate via passwordless magic link to cast verified community votes."
-      />
+          {/* #3 Bronze Rank */}
+          {podium.third && (
+            <div className="order-3 rounded-2xl p-5 bg-surface border border-amber-800/30 shadow-sm relative flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-700/10 text-amber-700 dark:text-amber-500">
+                  <Award className="w-3.5 h-3.5 text-amber-700" />
+                  #3 Bronze Rank
+                </span>
+                <span className="font-mono text-sm font-black text-amber-700 dark:text-amber-500">
+                  {podium.third.formattedAmount || `$${podium.third.score.toFixed(2)}`}
+                </span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  {podium.third.product.logoUrl && (
+                    <img
+                      src={podium.third.product.logoUrl}
+                      alt={podium.third.product.name}
+                      className="w-10 h-10 rounded-xl object-cover border border-border"
+                    />
+                  )}
+                  <div>
+                    <h3 className="font-bold text-sm text-text-primary truncate">
+                      {podium.third.product.name}
+                    </h3>
+                    <span className="text-[11px] text-text-muted">
+                      {typeof podium.third.product.category === 'object'
+                        ? podium.third.product.category?.name
+                        : podium.third.product.category}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+                  {podium.third.product.tagline}
+                </p>
+              </div>
+              <div className="pt-4 flex items-center justify-between border-t border-border/60 mt-3">
+                <a
+                  href={podium.third.product.websiteUrl || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-text-muted hover:text-text-primary inline-flex items-center gap-1"
+                >
+                  <span>Visit</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                <button
+                  onClick={() =>
+                    setSelectedProductForOutbid({
+                      id: podium.third!.product.id || podium.third!.product._id || '',
+                      name: podium.third!.product.name,
+                      currentRank: 3,
+                      amountCents: podium.third!.amountCents || Math.round(podium.third!.score * 100),
+                    })
+                  }
+                  className="px-3 py-1.5 rounded-lg bg-surface border border-border hover:border-primary text-text-primary hover:text-primary text-xs font-semibold transition-colors"
+                >
+                  Outbid #3
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main Leaderboard Product List */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between px-2 text-xs font-bold uppercase tracking-wider text-text-muted">
+          <span>Rank &amp; Product Details</span>
+          <span>Paid Rank / Outbid</span>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-border bg-surface p-4 flex items-center gap-4 animate-pulse"
+              >
+                <div className="w-8 h-8 rounded-lg bg-surface-sunken" />
+                <div className="w-12 h-12 rounded-xl bg-surface-sunken" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-40 rounded bg-surface-sunken" />
+                  <div className="h-3 w-3/4 rounded bg-surface-sunken" />
+                </div>
+                <div className="w-20 h-8 rounded-lg bg-surface-sunken" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          leaderboardItems.map((item) => {
+            const formatted = item.formattedAmount || `$${item.score.toFixed(2)}`;
+            const isTop3 = item.rank <= 3;
+            return (
+              <div
+                key={item.product.id || item.product._id || item.rank}
+                className="group rounded-2xl bg-surface border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              >
+                {/* Left Product Details */}
+                <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-xl font-mono text-sm font-black shrink-0 bg-surface-sunken border border-border text-text-secondary">
+                    #{item.rank}
+                  </div>
+                  {item.product.logoUrl && (
+                    <img
+                      src={item.product.logoUrl}
+                      alt={item.product.name}
+                      className="w-11 h-11 rounded-xl object-cover border border-border shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm text-text-primary truncate">
+                        {item.product.name}
+                      </h4>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold bg-surface-sunken text-text-muted border border-border">
+                        {typeof item.product.category === 'object'
+                          ? item.product.category?.name
+                          : item.product.category}
+                      </span>
+                    </div>
+                    <p className="text-xs text-text-secondary line-clamp-1">
+                      {item.product.tagline}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right Pay-to-Rank Actions */}
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                  <div className="text-right">
+                    <span className="font-mono text-sm font-black text-text-primary block">
+                      {formatted}
+                    </span>
+                    <span className="text-[10px] text-text-muted font-medium">qualifying bid</span>
+                  </div>
+
+                  <a
+                    href={item.product.websiteUrl || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-xl bg-surface-sunken hover:bg-border text-text-muted hover:text-text-primary transition-colors"
+                    aria-label={`Visit ${item.product.name}`}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+
+                  <button
+                    onClick={() =>
+                      setSelectedProductForOutbid({
+                        id: item.product.id || item.product._id || '',
+                        name: item.product.name,
+                        currentRank: item.rank,
+                        amountCents: item.amountCents || Math.round(item.score * 100),
+                      })
+                    }
+                    className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Outbid</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Retained: "Join 1,200+ Innovative Founders" CTA Section */}
+      <section className="mt-12 rounded-3xl bg-gradient-to-r from-primary via-[#003cb3] to-[#001f5c] text-white p-8 sm:p-12 text-center relative overflow-hidden shadow-xl">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none" />
+
+        <div className="relative z-10 max-w-2xl mx-auto space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-white/15 backdrop-blur-md border border-white/20 text-white">
+            <Flame className="w-3.5 h-3.5 text-amber-300" />
+            <span>Join 1,200+ Innovative Founders</span>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
+            Ready to Launch and Compete on the Paid Leaderboard?
+          </h2>
+
+          <p className="text-xs sm:text-sm text-indigo-100 max-w-lg mx-auto leading-relaxed">
+            Submit your product once for permanent directory inclusion. Start with a $5.99 minimum qualifying payment to establish your All-Time rank and compete on today’s daily board.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <Link
+              href="/submit"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white hover:bg-slate-50 text-primary font-bold text-xs sm:text-sm transition-all shadow-lg shadow-black/10 flex items-center justify-center gap-2"
+            >
+              <span>Submit &amp; Rank Your Product ($5.99)</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+
+            <Link
+              href="/rules"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm border border-white/20 transition-all flex items-center justify-center gap-2"
+            >
+              <span>Read Ranking Rules</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Interactive Outbid Modal */}
+      {selectedProductForOutbid && (
+        <OutbidModal
+          isOpen={true}
+          onClose={() => setSelectedProductForOutbid(null)}
+          productId={selectedProductForOutbid.id}
+          productName={selectedProductForOutbid.name}
+          currentRank={selectedProductForOutbid.currentRank}
+          currentAmountCents={selectedProductForOutbid.amountCents}
+        />
+      )}
     </div>
   );
 }

@@ -1,12 +1,15 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export type LedgerEntryStatus = 'APPLIED' | 'REVERSED';
+export type RankingContributionType = 'INITIAL_ENTRY' | 'DAILY' | 'ALL_TIME_BOOST';
 
 export interface IRankingLedger {
   _id: Types.ObjectId;
   paymentId: Types.ObjectId;
   productId: Types.ObjectId;
-  founderId: Types.ObjectId;
+  founderId?: Types.ObjectId;
+  payerEmail?: string;
+  contributionType: RankingContributionType;
   amountCents: number;
   qualifyingAmountCents: number;
   targetDailyDate: string; // YYYY-MM-DD UTC date of contribution
@@ -40,7 +43,20 @@ const RankingLedgerSchema = new Schema<IRankingLedger>(
     founderId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Founder reference is required'],
+      default: null,
+      required: false,
+    },
+    payerEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: null,
+    },
+    contributionType: {
+      type: String,
+      enum: ['INITIAL_ENTRY', 'DAILY', 'ALL_TIME_BOOST'],
+      default: 'DAILY',
+      required: true,
     },
     amountCents: {
       type: Number,

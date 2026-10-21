@@ -50,6 +50,20 @@ const manualSubmitSchema = confirmDraftSchema.extend({
   websiteUrl: z.string({ required_error: 'Website URL is required' }).trim().min(1),
 });
 
+const publicSubmitSchema = z.object({
+  name: z.string({ required_error: 'Name is required' }).trim().min(2).max(100),
+  tagline: z.string({ required_error: 'Tagline is required' }).trim().min(10).max(140),
+  description: z.string({ required_error: 'Description is required' }).trim().min(10).max(5000),
+  websiteUrl: z.string({ required_error: 'Website URL is required' }).trim().min(1),
+  categoryId: z.string({ required_error: 'Category ID is required' }),
+  contactEmail: z.string().email().optional(),
+  logoUrl: z.string().optional(),
+  initialPaymentCents: z.number().int().min(100).optional(),
+  provider: z.enum(['paddle', 'lemonsqueezy']).optional(),
+  successUrl: z.string().url().optional(),
+  cancelUrl: z.string().url().optional(),
+});
+
 const updateProductSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
   tagline: z.string().trim().min(10).max(140).optional(),
@@ -95,6 +109,17 @@ router.get(
   requireAuth,
   authRateLimit,
   (req, res, next) => productController.getScrapeStatus(req, res, next)
+);
+
+/**
+ * 2.5 POST /api/v1/products/public-submit
+ * Public accountless product submission & Pay-to-Rank entry point.
+ */
+router.post(
+  '/public-submit',
+  submissionRateLimit,
+  validate(publicSubmitSchema, 'body'),
+  (req, res, next) => productController.publicSubmit(req, res, next)
 );
 
 /**
@@ -172,12 +197,12 @@ router.get(
 
 /**
  * 7. PATCH /api/v1/products/:id
- * Founder update product details (records revision snapshot).
+ * Admin-only protected moderation update (ordinary public editing removed)
  */
 router.patch(
   '/:id',
   requireAuth,
-  requireRole('FOUNDER', 'ADMIN'),
+  requireRole('ADMIN'),
   authRateLimit,
   validate(updateProductSchema, 'body'),
   (req, res, next) => productController.update(req, res, next)

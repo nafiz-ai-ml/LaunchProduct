@@ -5,7 +5,7 @@ import './globals.css';
 import '@/styles/globals.css';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
 import { CommandPalette } from '@/components/search/CommandPalette';
-import { Navbar } from '@/components/layout/Navbar';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { Footer } from '@/components/layout/Footer';
 import { TopProgressBar } from '@/components/layout/TopProgressBar';
 
@@ -24,16 +24,15 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: 'LaunchProduct — High-Integrity Product Discovery & Growth Platform',
+  title: 'LaunchProduct — Pay-to-Rank Product Discovery Platform',
   description:
-    'Discover, launch, and grow top SaaS applications, AI agents, and developer utilities with transparent rankings and verified traction.',
+    'Discover top SaaS applications, AI agents, and developer utilities. Leaderboard positions are determined by qualifying paid ranking amounts.',
   keywords: [
     'product discovery',
-    'saas launches',
+    'pay to rank',
+    'saas leaderboard',
     'ai agents',
     'developer tools',
-    'product hunt alternative',
-    'growth platform',
     'startup leaderboard',
   ],
   authors: [{ name: 'LaunchProduct Team' }],
@@ -42,9 +41,9 @@ export const metadata: Metadata = {
     canonical: 'https://launchproduct.com',
   },
   openGraph: {
-    title: 'LaunchProduct — High-Integrity Product Discovery & Growth Platform',
+    title: 'LaunchProduct — Pay-to-Rank Product Discovery Platform',
     description:
-      'Discover, launch, and grow top SaaS applications, AI agents, and developer utilities with transparent rankings and verified traction.',
+      'Discover top SaaS applications, AI agents, and developer utilities. Leaderboard positions are determined by qualifying paid ranking amounts.',
     url: 'https://launchproduct.com',
     siteName: 'LaunchProduct',
     locale: 'en_US',
@@ -52,9 +51,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LaunchProduct — High-Integrity Product Discovery & Growth Platform',
+    title: 'LaunchProduct — Pay-to-Rank Product Discovery Platform',
     description:
-      'Discover, launch, and grow top SaaS applications, AI agents, and developer utilities with transparent rankings and verified traction.',
+      'Discover top SaaS applications, AI agents, and developer utilities. Leaderboard positions are determined by qualifying paid ranking amounts.',
     creator: '@launchproduct',
   },
   icons: {
@@ -79,11 +78,17 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <TopProgressBar />
           </Suspense>
-          <Navbar />
-          <div className="flex-1 w-full max-w-full">
-            {children}
+          <div className="flex min-h-screen w-full">
+            <Suspense fallback={null}>
+              <Sidebar />
+            </Suspense>
+            <div className="flex-1 flex flex-col md:ml-64 w-full min-w-0">
+              <main className="flex-1 w-full min-w-0">
+                {children}
+              </main>
+              <Footer />
+            </div>
           </div>
-          <Footer />
           <CommandPalette />
         </ThemeProvider>
       </body>

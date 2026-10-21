@@ -14,6 +14,8 @@ import { redis, isRedisConnected } from '../shared/redis';
 import { scraperQueue } from '../shared/scraper-queue';
 import { logger } from '../shared/logger';
 import { scrapeAndSynthesizeMetadata, ScrapedProductMetadata } from './scraper.service';
+import { rankingService } from './ranking.service';
+import { paymentService } from './payment.service';
 
 export interface ProductDraftInput {
   name: string;
@@ -181,7 +183,7 @@ export class ProductService {
       );
     }
 
-    if (product.submittedById.toString() !== userId) {
+    if (product.submittedById && product.submittedById.toString() !== userId) {
       throw new AuthorizationError(
         'You do not have permission to confirm this draft product',
         'FORBIDDEN'
@@ -479,6 +481,131 @@ export class ProductService {
     }
 
     return product;
+  }
+
+  /**
+   * 10. Public Accountless Product Submission & Rank Entry
+   * Normalizes canonical domain, detects repeat submissions vs initial entries,
+   * creates or reuses permanent product, and generates MoR Pay-to-Rank checkout.
+   */
+  async publicAccountlessSubmit(data: {
+    name: string;
+    tagline: string;
+    description: string;
+    websiteUrl: string;
+    categoryId: string;
+    contactEmail?: string;
+    logoUrl?: string;
+    initialPaymentCents?: number;
+    provider?: string;
+    successUrl?: string;
+    cancelUrl?: string;
+  }): Promise<{
+    product: IProduct;
+    isExistingProduct: boolean;
+    checkoutUrl: string;
+    sessionId: string;
+    amountCents: number;
+    formattedAmount: string;
+    contributionType: 'INITIAL_ENTRY' | 'DAILY';
+  }> {
+    if (!data.websiteUrl) {
+      throw new ValidationError('Website URL is required');
+    }
+    if (!data.name || data.name.trim().length < 2) {
+      throw new ValidationError('Product name must be at least 2 characters');
+    }
+    if (!data.tagline || data.tagline.trim().length < 10) {
+      throw new ValidationError('Product tagline must be at least 10 characters');
+    }
+
+    const normalizedUrl = normalizeUrl(data.websiteUrl);
+    const domain = extractCanonicalDomain(normalizedUrl);
+    const rules = await rankingService.getRankingRules();
+
+    // Check if product with this canonical domain already exists in the permanent directory
+    const existing = await productRepository.findByCanonicalDomain(domain);
+
+    if (existing && existing.status !== ProductStatus.DELETED) {
+      // Repeat submission for an existing permanent product: register daily participation
+      const amountToPay = Math.max(
+        rules.minIncrementCents,
+        data.initialPaymentCents || rules.minIncrementCents
+      );
+
+      const checkout = await paymentService.createRankingCheckout({
+        productId: existing._id.toString(),
+        amountCents: amountToPay,
+        payerEmail: data.contactEmail,
+        contributionType: 'DAILY',
+        provider: (data.provider as any) || 'paddle',
+        successUrl: data.successUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/?status=success&paid=true`,
+        cancelUrl: data.cancelUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/?status=cancelled`,
+      });
+
+      return {
+        product: existing,
+        isExistingProduct: true,
+        checkoutUrl: checkout.checkoutUrl,
+        sessionId: checkout.sessionId,
+        amountCents: amountToPay,
+        formattedAmount: checkout.formattedAmount,
+        contributionType: 'DAILY',
+      };
+    }
+
+    // Initial Submission: create new permanent product (unranked until payment confirmation)
+    const slug = await productRepository.generateSlug(data.name);
+
+    const product = await productRepository.create({
+      name: data.name.trim(),
+      tagline: data.tagline.trim(),
+      description: data.description.trim(),
+      websiteUrl: normalizedUrl,
+      canonicalDomain: domain,
+      contactEmail: data.contactEmail?.trim().toLowerCase() || undefined,
+      categoryId: new Types.ObjectId(data.categoryId),
+      pricing: {
+        model: 'freemium',
+        startingPrice: 0,
+        currency: 'USD',
+      },
+      media: {
+        logoUrl: data.logoUrl?.trim() || '',
+        bannerUrl: '',
+        screenshotUrls: [],
+      },
+      slug,
+      status: ProductStatus.DRAFT,
+      paidRankingAmountCents: 0,
+      todayPaidAmountCents: 0,
+      initialVersion: 1,
+    });
+
+    const amountToPay = Math.max(
+      rules.minInitialPaymentCents,
+      data.initialPaymentCents || rules.minInitialPaymentCents
+    );
+
+    const checkout = await paymentService.createRankingCheckout({
+      productId: product._id.toString(),
+      amountCents: amountToPay,
+      payerEmail: data.contactEmail,
+      contributionType: 'INITIAL_ENTRY',
+      provider: (data.provider as any) || 'paddle',
+      successUrl: data.successUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/?status=success&paid=true`,
+      cancelUrl: data.cancelUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/?status=cancelled`,
+    });
+
+    return {
+      product,
+      isExistingProduct: false,
+      checkoutUrl: checkout.checkoutUrl,
+      sessionId: checkout.sessionId,
+      amountCents: amountToPay,
+      formattedAmount: checkout.formattedAmount,
+      contributionType: 'INITIAL_ENTRY',
+    };
   }
 }
 

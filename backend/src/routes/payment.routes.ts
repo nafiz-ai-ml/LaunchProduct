@@ -23,6 +23,8 @@ function getMetadata(extra?: Record<string, unknown>) {
 const rankCheckoutSchema = z.object({
   productId: z.string({ required_error: 'Product ID is required' }).trim().min(1),
   amountCents: z.number({ required_error: 'Amount in cents is required' }).int().positive(),
+  payerEmail: z.string().email().optional(),
+  contributionType: z.enum(['INITIAL_ENTRY', 'DAILY', 'ALL_TIME_BOOST']).optional(),
   provider: z.enum(['paddle', 'lemonsqueezy']).optional(),
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
@@ -30,26 +32,23 @@ const rankCheckoutSchema = z.object({
 
 /**
  * 1. POST /api/v1/payments/rank-checkout
- * Initiates Pay-to-Rank checkout session via MoR provider
+ * Initiates Pay-to-Rank checkout session via MoR provider (accountless supported)
  */
 router.post(
   '/rank-checkout',
-  requireAuth,
   authRateLimit,
   validate(rankCheckoutSchema, 'body'),
   async (req, res, next) => {
     try {
-      if (!req.user?.userId) {
-        throw new AuthenticationError('Authentication required to purchase rank', 'UNAUTHORIZED');
-      }
-
-      const { productId, amountCents, provider, successUrl, cancelUrl } = req.body;
-      const defaultSuccessUrl = successUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?status=success&paid=true`;
-      const defaultCancelUrl = cancelUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?status=cancelled`;
+      const { productId, amountCents, payerEmail, contributionType, provider, successUrl, cancelUrl } = req.body;
+      const defaultSuccessUrl = successUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/?status=success&paid=true`;
+      const defaultCancelUrl = cancelUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/?status=cancelled`;
 
       const result = await paymentService.createRankingCheckout({
         productId,
-        founderId: req.user.userId,
+        founderId: req.user?.userId,
+        payerEmail,
+        contributionType,
         amountCents,
         successUrl: defaultSuccessUrl,
         cancelUrl: defaultCancelUrl,

@@ -24,7 +24,8 @@ export interface IProduct {
   description: string;
   websiteUrl: string;
   founderId?: Types.ObjectId;
-  submittedById: Types.ObjectId;
+  submittedById?: Types.ObjectId;
+  contactEmail?: string;
   categoryId: Types.ObjectId;
   pricing: IProductPricing;
   media: IProductMedia;
@@ -139,7 +140,14 @@ const ProductSchema = new Schema<IProduct>(
     submittedById: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Submitting user reference is required'],
+      default: null,
+      required: false,
+    },
+    contactEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: null,
     },
     categoryId: {
       type: Schema.Types.ObjectId,
