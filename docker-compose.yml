@@ -45,12 +45,7 @@ services:
       SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET:-dev-session-secret-key-32-chars-ok}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@launchproduct.io}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       PADDLE_WEBHOOK_SECRET: ${PADDLE_WEBHOOK_SECRET:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       NEXT_PUBLIC_API_URL: http://localhost:4000
     depends_on:
       - mongodb
@@ -86,7 +81,6 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     networks:
       - scraper-isolated-net
 

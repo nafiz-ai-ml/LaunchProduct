@@ -6,7 +6,7 @@ import { RankingLedger } from '../models/RankingLedger.model';
 import { Product } from '../models/Product.model';
 import { validate } from '../middleware/validate.middleware';
 import { requireAuth } from '../middleware/auth.middleware';
-import { authRateLimit } from '../middleware/rate-limit.middleware';
+import { authRateLimit, publicRateLimit } from '../middleware/rate-limit.middleware';
 import { AuthenticationError, NotFoundError, ValidationError } from '../shared/errors';
 import { Types } from 'mongoose';
 
@@ -36,7 +36,7 @@ const rankCheckoutSchema = z.object({
  */
 router.post(
   '/rank-checkout',
-  authRateLimit,
+  publicRateLimit,
   validate(rankCheckoutSchema, 'body'),
   async (req, res, next) => {
     try {

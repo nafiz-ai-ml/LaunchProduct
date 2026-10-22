@@ -125,51 +125,9 @@ export class AuthController {
    */
   async initiateOAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { provider } = req.params;
-      const returnUrl = (req.query.returnUrl as string) || (req.query.redirect as string) || '/dashboard';
-      const clientOrigin = (req.query.origin as string) || req.get('origin') || req.get('referer') || '';
-      const statePayload = Buffer.from(
-        JSON.stringify({
-          returnUrl,
-          clientOrigin,
-          nonce: Math.random().toString(36).substring(2),
-        })
-      ).toString('base64');
-
-      const backendUrl = getBackendBaseUrl(req);
-      const callbackUrl = `${backendUrl}/api/v1/auth/oauth/${provider}/callback`;
-
-      if (provider === 'google') {
-        const clientId = process.env.GOOGLE_CLIENT_ID || config.GOOGLE_CLIENT_ID;
-        if (!clientId) {
-          throw new ValidationError('Google OAuth is not configured on this server');
-        }
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${encodeURIComponent(
-          clientId
-        )}&redirect_uri=${encodeURIComponent(
-          callbackUrl
-        )}&scope=openid%20email%20profile&state=${encodeURIComponent(statePayload)}&access_type=offline&prompt=consent`;
-
-        res.redirect(302, authUrl);
-        return;
-      }
-
-      if (provider === 'github') {
-        const clientId = process.env.GITHUB_CLIENT_ID || config.GITHUB_CLIENT_ID;
-        if (!clientId) {
-          throw new ValidationError('GitHub OAuth is not configured on this server');
-        }
-        const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
-          clientId
-        )}&redirect_uri=${encodeURIComponent(
-          callbackUrl
-        )}&scope=read:user%20user:email&state=${encodeURIComponent(statePayload)}`;
-
-        res.redirect(302, authUrl);
-        return;
-      }
-
-      throw new ValidationError(`Unsupported OAuth provider: '${provider}'. Must be google or github.`);
+      throw new ValidationError(
+        'OAuth authentication has been retired. LaunchProduct operates as an accountless Pay-to-Rank product discovery platform.'
+      );
     } catch (error) {
       next(error);
     }
@@ -177,140 +135,13 @@ export class AuthController {
 
   /**
    * 4. GET /api/v1/auth/oauth/:provider/callback
+   * Retired: LaunchProduct operates as an accountless Pay-to-Rank platform.
    */
   async handleOAuthCallback(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { provider } = req.params;
-      const { code, state } = req.query;
-
-      if (!code || typeof code !== 'string') {
-        throw new ValidationError('OAuth authorization code is missing from callback');
-      }
-
-      let returnUrl = '/dashboard';
-      let clientOrigin = '';
-      if (state && typeof state === 'string') {
-        try {
-          const parsedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
-          if (parsedState.returnUrl && typeof parsedState.returnUrl === 'string') {
-            returnUrl = parsedState.returnUrl.startsWith('/') ? parsedState.returnUrl : '/dashboard';
-          }
-          if (parsedState.clientOrigin && typeof parsedState.clientOrigin === 'string') {
-            clientOrigin = parsedState.clientOrigin.replace(/\/$/, '');
-          }
-        } catch {
-          // Ignore invalid state decode and use default dashboard
-        }
-      }
-
-      const backendUrl = getBackendBaseUrl(req);
-      const callbackUrl = `${backendUrl}/api/v1/auth/oauth/${provider}/callback`;
-
-      let providerUserId = '';
-      let email = '';
-
-      if (provider === 'google') {
-        const clientId = process.env.GOOGLE_CLIENT_ID || config.GOOGLE_CLIENT_ID;
-        const clientSecret = process.env.GOOGLE_CLIENT_SECRET || config.GOOGLE_CLIENT_SECRET;
-
-        // Exchange code for Google tokens
-        const tokenRes = await axios.post(
-          'https://oauth2.googleapis.com/token',
-          new URLSearchParams({
-            code,
-            client_id: clientId,
-            client_secret: clientSecret,
-            redirect_uri: callbackUrl,
-            grant_type: 'authorization_code',
-          }),
-          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-        );
-
-        const accessToken = tokenRes.data.access_token;
-
-        // Fetch user info from Google
-        const userinfoRes = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-
-        providerUserId = userinfoRes.data.sub;
-        email = userinfoRes.data.email;
-      } else if (provider === 'github') {
-        const clientId = process.env.GITHUB_CLIENT_ID || config.GITHUB_CLIENT_ID;
-        const clientSecret = process.env.GITHUB_CLIENT_SECRET || config.GITHUB_CLIENT_SECRET;
-
-        // Exchange code for GitHub token
-        const tokenRes = await axios.post(
-          'https://github.com/login/oauth/access_token',
-          {
-            client_id: clientId,
-            client_secret: clientSecret,
-            code,
-            redirect_uri: callbackUrl,
-          },
-          { headers: { Accept: 'application/json' } }
-        );
-
-        const accessToken = tokenRes.data.access_token;
-        if (!accessToken) {
-          throw new AuthenticationError('Failed to obtain access token from GitHub', 'UNAUTHORIZED');
-        }
-
-        // Fetch GitHub user profile
-        const userRes = await axios.get('https://api.github.com/user', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'User-Agent': 'LaunchProduct-Auth',
-          },
-        });
-
-        providerUserId = String(userRes.data.id);
-        email = userRes.data.email;
-
-        // If email is private, query emails endpoint
-        if (!email) {
-          const emailsRes = await axios.get('https://api.github.com/user/emails', {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'User-Agent': 'LaunchProduct-Auth',
-            },
-          });
-          const primary = emailsRes.data.find(
-            (e: { primary: boolean; verified: boolean; email: string }) => e.primary && e.verified
-          );
-          email = primary ? primary.email : emailsRes.data[0]?.email;
-        }
-      } else {
-        throw new ValidationError(`Unsupported OAuth provider: '${provider}'`);
-      }
-
-      if (!email) {
-        throw new AuthenticationError(
-          `Unable to retrieve verified email address from ${provider}`,
-          'UNAUTHORIZED'
-        );
-      }
-
-      const { user, sessionToken } = await authService.oauthCallback(
-        provider,
-        providerUserId,
-        email
+      throw new ValidationError(
+        'OAuth authentication has been retired. LaunchProduct operates as an accountless Pay-to-Rank product discovery platform.'
       );
-
-      // Set session cookie
-      res.cookie(COOKIE_NAME, sessionToken, getCookieOptions());
-
-      // If user is ADMIN or MODERATOR, and default returnUrl was used, route to /admin
-      let finalReturnUrl = returnUrl;
-      if (['ADMIN', 'MODERATOR'].includes(user.role) && (returnUrl === '/dashboard' || !returnUrl)) {
-        finalReturnUrl = '/admin';
-      }
-
-      // Support cross-domain frontend redirection (e.g. Netlify) with token in query param
-      const frontendBase = clientOrigin || getFrontendBaseUrl();
-      const delimiter = finalReturnUrl.includes('?') ? '&' : '?';
-      const targetUrl = `${frontendBase}${finalReturnUrl}${delimiter}token=${sessionToken}`;
-      res.redirect(302, targetUrl);
     } catch (error) {
       next(error);
     }

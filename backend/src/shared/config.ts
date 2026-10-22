@@ -19,14 +19,7 @@ const envSchema = z.object({
   SESSION_COOKIE_SECRET: z.string().min(16).default('dev_session_cookie_secret_launchproduct_minimum_64_characters_key_secure_67890'),
   EMAIL_FROM: z.string().default('noreply@launchproduct.io'),
   RESEND_API_KEY: z.string().optional().default(''),
-  OPENAI_API_KEY: z.string().optional().default(''),
-  OPENAI_BASE_URL: z.string().optional().default(''),
-  OPENAI_MODEL: z.string().optional().default('gpt-4o'),
   PADDLE_WEBHOOK_SECRET: z.string().optional().default(''),
-  GOOGLE_CLIENT_ID: z.string().optional().default(''),
-  GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
-  GITHUB_CLIENT_ID: z.string().optional().default(''),
-  GITHUB_CLIENT_SECRET: z.string().optional().default(''),
   ADMIN_EMAILS: z.string().optional().default(''),
 });
 
