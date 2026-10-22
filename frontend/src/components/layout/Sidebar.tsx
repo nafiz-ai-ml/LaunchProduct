@@ -125,14 +125,14 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Top Navigation Bar */}
-      <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-white/90 dark:bg-[#001433]/90 backdrop-blur-xl border-b border-border shadow-xs">
+      <header className="md:hidden sticky top-0 z-40 w-full flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#001433]/95 backdrop-blur-xl border-b border-border shadow-xs shrink-0">
         <Link href="/" className="flex items-center gap-2">
-          <Logo variant={resolvedTheme === 'dark' ? 'dark' : 'horizontal'} width={130} height={28} />
+          <Logo variant="auto" width={128} height={28} />
         </Link>
         <div className="flex items-center gap-2">
           <Link
             href="/submit"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-xs transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Rank</span>
@@ -145,7 +145,7 @@ export function Sidebar() {
             {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Mobile Backdrop Overlay */}
       {isOpen && (
@@ -157,7 +157,7 @@ export function Sidebar() {
 
       {/* Sidebar Container (Fixed desktop + Drawer mobile) */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white/95 dark:bg-[#001738]/95 backdrop-blur-2xl border-r border-slate-200/80 dark:border-slate-800/80 flex flex-col transition-transform duration-300 ease-in-out font-sans ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[85vw] md:w-64 bg-white/95 dark:bg-[#001738]/95 backdrop-blur-2xl border-r border-slate-200/80 dark:border-slate-800/80 flex flex-col transition-transform duration-300 ease-in-out font-sans shadow-2xl md:shadow-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >

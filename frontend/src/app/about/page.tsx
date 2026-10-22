@@ -16,7 +16,7 @@ import {
 
 export default function AboutPage() {
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-8 py-10 space-y-10 font-sans">
+    <div className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 sm:space-y-10 font-sans min-w-0 overflow-x-hidden">
       {/* Title */}
       <div className="space-y-3 border-b border-border pb-6">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
@@ -33,7 +33,7 @@ export default function AboutPage() {
 
       {/* Mission & Core Principles */}
       <div className="space-y-8 text-xs sm:text-sm text-text-secondary leading-relaxed">
-        <section className="rounded-2xl bg-surface border border-border p-6 sm:p-8 space-y-4">
+        <section className="rounded-2xl bg-surface border border-border p-4 sm:p-8 space-y-4">
           <h2 className="text-base sm:text-lg font-bold text-text-primary flex items-center gap-2">
             <Scale className="w-5 h-5 text-primary" />
             <span>Why Pay-to-Rank?</span>

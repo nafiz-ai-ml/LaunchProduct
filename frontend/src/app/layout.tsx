@@ -78,12 +78,12 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <TopProgressBar />
           </Suspense>
-          <div className="flex min-h-screen w-full">
+          <div className="min-h-screen w-full flex flex-col md:flex-row max-w-full overflow-x-hidden">
             <Suspense fallback={null}>
               <Sidebar />
             </Suspense>
-            <div className="flex-1 flex flex-col md:ml-64 w-full min-w-0">
-              <main className="flex-1 w-full min-w-0">
+            <div className="flex-1 flex flex-col md:ml-64 w-full min-w-0 max-w-full overflow-x-hidden">
+              <main className="flex-1 w-full min-w-0 max-w-full">
                 {children}
               </main>
               <Footer />

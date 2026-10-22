@@ -274,38 +274,38 @@ export default function HomePage() {
   }, [leaderboardItems]);
 
   return (
-    <div className="w-full max-w-full px-4 sm:px-8 py-6 space-y-6">
+    <div className="w-full max-w-full px-3.5 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6 min-w-0 overflow-x-hidden">
       {/* Top Banner & Board Controls Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-border/80">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 sm:pb-5 border-b border-border/80">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
               <Zap className="w-3 h-3 text-primary" />
               Pay-to-Rank Discovery
             </span>
             <span className="text-xs text-text-muted">·</span>
-            <span className="text-xs text-text-muted font-medium">$5.99 min initial entry</span>
+            <span className="text-[11px] sm:text-xs text-text-muted font-medium">$5.99 min initial entry</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight">
+          <h1 className="text-xl sm:text-3xl font-black text-text-primary tracking-tight">
             {activeBoard === 'today'
               ? "Today's Leaderboard"
               : activeBoard === 'all-time'
               ? 'All-Time Leaderboard'
               : 'Daily Archive'}
           </h1>
-          <p className="text-xs sm:text-sm text-text-secondary mt-1">
+          <p className="text-xs sm:text-sm text-text-secondary mt-1 max-w-2xl">
             Rank is determined strictly by verified qualifying paid ranking amounts with midnight UTC resets.
           </p>
         </div>
 
         {/* Board Switcher Tabs & Live UTC Reset Counter */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center p-1 bg-surface border border-border rounded-xl">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="inline-flex items-center p-1 bg-surface border border-border rounded-xl">
             <button
               onClick={() => handleTabChange('today')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 activeBoard === 'today'
-                  ? 'bg-primary text-white shadow-xs'
+                  ? 'bg-primary text-white shadow-xs font-bold'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-sunken'
               }`}
             >
@@ -314,9 +314,9 @@ export default function HomePage() {
             </button>
             <button
               onClick={() => handleTabChange('all-time')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 activeBoard === 'all-time'
-                  ? 'bg-primary text-white shadow-xs'
+                  ? 'bg-primary text-white shadow-xs font-bold'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-sunken'
               }`}
             >
@@ -325,9 +325,9 @@ export default function HomePage() {
             </button>
             <button
               onClick={() => handleTabChange('archive')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 activeBoard === 'archive'
-                  ? 'bg-primary text-white shadow-xs'
+                  ? 'bg-primary text-white shadow-xs font-bold'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-sunken'
               }`}
             >
@@ -338,7 +338,7 @@ export default function HomePage() {
 
           {/* UTC Midnight Reset Pill */}
           {activeBoard === 'today' && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-600 dark:text-amber-400 text-xs font-semibold">
+            <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-600 dark:text-amber-400 text-[11px] sm:text-xs font-semibold">
               <Clock className="w-3.5 h-3.5 animate-pulse" />
               <span>Reset in {utcCountdown}</span>
             </div>
@@ -347,14 +347,14 @@ export default function HomePage() {
       </div>
 
       {/* Category Navigation Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-none w-full max-w-full min-w-0">
         {CATEGORIES.map((cat) => {
           const isSelected = selectedCategory === cat.slug;
           return (
             <button
               key={cat.slug}
               onClick={() => handleCategoryChange(cat.slug)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all ${
                 isSelected
                   ? 'bg-primary text-white shadow-xs'
                   : 'bg-surface hover:bg-surface-sunken text-text-secondary hover:text-text-primary border border-border'
@@ -589,26 +589,26 @@ export default function HomePage() {
             return (
               <div
                 key={item.product.id || item.product._id || item.rank}
-                className="group rounded-2xl bg-surface border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                className="group rounded-2xl bg-surface border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-w-0"
               >
                 {/* Left Product Details */}
-                <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-xl font-mono text-sm font-black shrink-0 bg-surface-sunken border border-border text-text-secondary">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-xl font-mono text-xs sm:text-sm font-black shrink-0 bg-surface-sunken border border-border text-text-secondary">
                     #{item.rank}
                   </div>
                   {item.product.logoUrl && (
                     <img
                       src={item.product.logoUrl}
                       alt={item.product.name}
-                      className="w-11 h-11 rounded-xl object-cover border border-border shrink-0"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-border shrink-0"
                     />
                   )}
-                  <div className="min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-sm text-text-primary truncate">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-sm text-text-primary truncate max-w-[160px] sm:max-w-none">
                         {item.product.name}
                       </h4>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold bg-surface-sunken text-text-muted border border-border">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold bg-surface-sunken text-text-muted border border-border shrink-0">
                         {typeof item.product.category === 'object'
                           ? item.product.category?.name
                           : item.product.category}
@@ -621,38 +621,40 @@ export default function HomePage() {
                 </div>
 
                 {/* Right Pay-to-Rank Actions */}
-                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
-                  <div className="text-right">
-                    <span className="font-mono text-sm font-black text-text-primary block">
+                <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 shrink-0 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-border/40 w-full sm:w-auto">
+                  <div className="text-left sm:text-right">
+                    <span className="font-mono text-xs sm:text-sm font-black text-text-primary block">
                       {formatted}
                     </span>
                     <span className="text-[10px] text-text-muted font-medium">qualifying bid</span>
                   </div>
 
-                  <a
-                    href={item.product.websiteUrl || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 rounded-xl bg-surface-sunken hover:bg-border text-text-muted hover:text-text-primary transition-colors"
-                    aria-label={`Visit ${item.product.name}`}
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={item.product.websiteUrl || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 sm:p-2 rounded-xl bg-surface-sunken hover:bg-border text-text-muted hover:text-text-primary transition-colors"
+                      aria-label={`Visit ${item.product.name}`}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </a>
 
-                  <button
-                    onClick={() =>
-                      setSelectedProductForOutbid({
-                        id: item.product.id || item.product._id || '',
-                        name: item.product.name,
-                        currentRank: item.rank,
-                        amountCents: item.amountCents || Math.round(item.score * 100),
-                      })
-                    }
-                    className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Outbid</span>
-                  </button>
+                    <button
+                      onClick={() =>
+                        setSelectedProductForOutbid({
+                          id: item.product.id || item.product._id || '',
+                          name: item.product.name,
+                          currentRank: item.rank,
+                          amountCents: item.amountCents || Math.round(item.score * 100),
+                        })
+                      }
+                      className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Outbid</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -661,7 +663,7 @@ export default function HomePage() {
       </div>
 
       {/* Retained: "Join 1,200+ Innovative Founders" CTA Section */}
-      <section className="mt-12 rounded-3xl bg-gradient-to-r from-primary via-[#003cb3] to-[#001f5c] text-white p-8 sm:p-12 text-center relative overflow-hidden shadow-xl">
+      <section className="mt-8 sm:mt-12 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-primary via-[#003cb3] to-[#001f5c] text-white p-5 sm:p-12 text-center relative overflow-hidden shadow-xl">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none" />
 
         <div className="relative z-10 max-w-2xl mx-auto space-y-4">

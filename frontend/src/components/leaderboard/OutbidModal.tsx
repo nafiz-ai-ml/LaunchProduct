@@ -124,33 +124,33 @@ export function OutbidModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-surface border border-border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in overflow-y-auto">
+      <div className="bg-surface border border-border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-up my-auto max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary-subtle to-transparent p-5 border-b border-border flex items-center justify-between">
+        <div className="bg-gradient-to-r from-primary/10 via-primary-subtle to-transparent p-4 sm:p-5 border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm">
-              <Zap className="w-5 h-5 text-amber-300" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm shrink-0">
+              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
             </div>
-            <div>
-              <h3 className="font-bold text-text-primary text-base sm:text-lg">
+            <div className="min-w-0">
+              <h3 className="font-bold text-text-primary text-sm sm:text-lg truncate">
                 Outbid &amp; Claim Rank #{resolvedRank}
               </h3>
-              <p className="text-text-muted text-xs">
+              <p className="text-text-muted text-[11px] sm:text-xs">
                 Accountless Pay-to-Rank • Instant placement upon confirmed payment
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg hover:bg-surface-sunken text-text-muted hover:text-text-primary flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg hover:bg-surface-sunken text-text-muted hover:text-text-primary flex items-center justify-center transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
           {/* Target Product Badge */}
           <div className="bg-surface-sunken p-3.5 rounded-xl border border-border flex items-center justify-between">
             <div className="flex items-center gap-3">

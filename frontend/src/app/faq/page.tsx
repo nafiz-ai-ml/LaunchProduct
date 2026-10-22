@@ -73,7 +73,7 @@ export default function FaqPage() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-8 py-10 space-y-10 font-sans">
+    <div className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 sm:space-y-10 font-sans min-w-0 overflow-x-hidden">
       {/* Title */}
       <div className="space-y-3 border-b border-border pb-6">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
@@ -99,7 +99,7 @@ export default function FaqPage() {
             >
               <button
                 onClick={() => toggleFaq(idx)}
-                className="w-full flex items-center justify-between p-5 text-left font-bold text-xs sm:text-sm text-text-primary hover:text-primary transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between p-4 sm:p-5 text-left font-bold text-xs sm:text-sm text-text-primary hover:text-primary transition-colors cursor-pointer"
               >
                 <span>{item.q}</span>
                 <ChevronDown

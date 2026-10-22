@@ -162,9 +162,9 @@ export default function SubmitProductPage() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-8 py-8 space-y-8 font-sans">
+    <div className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 font-sans min-w-0 overflow-x-hidden">
       {/* Header Banner */}
-      <div className="space-y-2 border-b border-border pb-6">
+      <div className="space-y-2 border-b border-border pb-5 sm:pb-6">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
           <Zap className="w-3.5 h-3.5 text-primary" />
           <span>No Account Required · Permanent Listing</span>
@@ -199,9 +199,9 @@ export default function SubmitProductPage() {
       )}
 
       {/* Main Submission Form */}
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
         {/* Section 1: Product Identity */}
-        <div className="rounded-2xl bg-surface border border-border p-6 sm:p-8 space-y-6">
+        <div className="rounded-2xl bg-surface border border-border p-4 sm:p-8 space-y-5 sm:space-y-6">
           <h2 className="text-base font-bold text-text-primary flex items-center gap-2 border-b border-border/60 pb-3">
             <Globe className="w-4 h-4 text-primary" />
             <span>1. Product Details</span>
@@ -320,7 +320,7 @@ export default function SubmitProductPage() {
         </div>
 
         {/* Section 2: Pay-to-Rank Amount Selection */}
-        <div className="rounded-2xl bg-surface border border-border p-6 sm:p-8 space-y-6">
+        <div className="rounded-2xl bg-surface border border-border p-4 sm:p-8 space-y-5 sm:space-y-6">
           <div className="flex items-center justify-between border-b border-border/60 pb-3">
             <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-primary" />

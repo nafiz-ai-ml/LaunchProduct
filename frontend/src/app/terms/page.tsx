@@ -21,13 +21,13 @@ import {
 
 export default function TermsOfServicePage() {
   return (
-    <div className="min-h-screen bg-bg text-text-primary pb-24">
+    <div className="min-h-screen bg-bg text-text-primary pb-24 min-w-0 overflow-x-hidden">
       {/* Ambient background aura */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-primary/10 blur-[130px] rounded-full" />
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
+      <div className="max-w-4xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-6 sm:pt-12 min-w-0">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs text-text-secondary mb-6">
           <Link href="/" className="hover:text-primary transition-colors">
@@ -38,7 +38,7 @@ export default function TermsOfServicePage() {
         </nav>
 
         {/* Header Hero */}
-        <div className="relative rounded-3xl p-8 sm:p-12 mb-12 border border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-b from-surface/90 to-surface/40 backdrop-blur-xl shadow-xl overflow-hidden">
+        <div className="relative rounded-2xl sm:rounded-3xl p-5 sm:p-10 mb-8 sm:mb-12 border border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-b from-surface/90 to-surface/40 backdrop-blur-xl shadow-xl overflow-hidden">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 border border-primary/25 text-primary mb-4 shadow-sm">
               <Scale className="w-3.5 h-3.5" />
