@@ -66,6 +66,60 @@ export const SEED_CATEGORIES = [
     description: 'Design and creative tools',
     sortOrder: 8,
   },
+  {
+    slug: 'domains',
+    name: 'Domains',
+    description: 'Domain names, name generators, and domain marketplaces',
+    sortOrder: 9,
+  },
+  {
+    slug: 'social',
+    name: 'Social & Community',
+    description: 'Viral networks, social launch, creator & community tools',
+    sortOrder: 10,
+  },
+  {
+    slug: 'analytics',
+    name: 'Analytics & Data',
+    description: 'Product metrics, data tracking, and analytics dashboards',
+    sortOrder: 11,
+  },
+  {
+    slug: 'finance',
+    name: 'Finance & Crypto',
+    description: 'Fintech, payments, crypto, web3, and accounting software',
+    sortOrder: 12,
+  },
+  {
+    slug: 'ecommerce',
+    name: 'E-Commerce',
+    description: 'Online storefronts, direct-to-consumer software, and checkout tools',
+    sortOrder: 13,
+  },
+  {
+    slug: 'boilerplates',
+    name: 'Boilerplates & Starters',
+    description: 'Next.js starter kits, SaaS templates, and rapid scaffolding kits',
+    sortOrder: 14,
+  },
+  {
+    slug: 'security',
+    name: 'Security & Privacy',
+    description: 'Cybersecurity, privacy compliance, identity, and authentication',
+    sortOrder: 15,
+  },
+  {
+    slug: 'writing',
+    name: 'Writing & Content',
+    description: 'AI copywriting, publishing, storytelling, and content creation',
+    sortOrder: 16,
+  },
+  {
+    slug: 'automation',
+    name: 'Automation & No-Code',
+    description: 'Workflow automation, no-code visual builders, and integrations',
+    sortOrder: 17,
+  },
 ];
 
 /**

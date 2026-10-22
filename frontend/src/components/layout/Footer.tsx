@@ -1,12 +1,58 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ExternalLink, TrendingUp, ShieldCheck } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
 export function Footer() {
   const pathname = usePathname();
+
+  // Dynamic real-time metrics starting at 0
+  const [stats, setStats] = useState({
+    visitors: 0,
+    paidRankingVolumeFormatted: '$ 0',
+    productsListed: 0,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    // 1. Atomically record visit once per session
+    if (typeof window !== 'undefined') {
+      try {
+        const hasTracked = sessionStorage.getItem('lp_visited');
+        if (!hasTracked) {
+          apiClient.post('/analytics/track-visit').catch(() => {});
+          sessionStorage.setItem('lp_visited', 'true');
+        }
+      } catch {
+        // ignore storage restrictions
+      }
+    }
+
+    // 2. Fetch real authoritative platform stats
+    apiClient
+      .get('/analytics/public-stats')
+      .then((res) => {
+        if (isMounted && res.data?.data) {
+          const d = res.data.data;
+          setStats({
+            visitors: typeof d.visitors === 'number' ? d.visitors : 0,
+            paidRankingVolumeFormatted: d.paidRankingVolumeFormatted || '$ 0',
+            productsListed: typeof d.productsListed === 'number' ? d.productsListed : 0,
+          });
+        }
+      })
+      .catch(() => {
+        // Keeps fallback 0 values
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Hide global footer on auth login pages if accessed
   if (pathname === '/auth' || pathname?.startsWith('/auth/')) {
@@ -14,7 +60,7 @@ export function Footer() {
   }
 
   return (
-    <footer className="border-t border-slate-200/80 dark:border-slate-800/80 bg-surface/40 backdrop-blur-md mt-auto pt-12 pb-16 px-4">
+    <footer className="border-t border-border bg-surface/40 backdrop-blur-md mt-auto pt-12 pb-16 px-4">
       <div className="max-w-3xl mx-auto space-y-8 text-center font-sans">
         {/* Stats Headline */}
         <div className="space-y-1">
@@ -30,7 +76,7 @@ export function Footer() {
           <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border shadow-xs flex flex-col items-center justify-center">
             <div className="flex items-center gap-1.5 font-mono text-lg sm:text-xl font-black text-text-primary">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>1,250,000+</span>
+              <span>{stats.visitors.toLocaleString('en-US')}</span>
             </div>
             <span className="text-[11px] text-text-muted mt-0.5">visitors</span>
           </div>
@@ -38,7 +84,7 @@ export function Footer() {
           {/* Card 2: Revenue / Ranking Volume */}
           <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border shadow-xs flex flex-col items-center justify-center">
             <div className="font-mono text-lg sm:text-xl font-black text-primary">
-              $ 148,650
+              {stats.paidRankingVolumeFormatted}
             </div>
             <span className="text-[11px] text-text-muted mt-0.5">paid ranking volume</span>
           </div>
@@ -46,7 +92,7 @@ export function Footer() {
           {/* Card 3: Products Added */}
           <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border shadow-xs flex flex-col items-center justify-center">
             <div className="font-mono text-lg sm:text-xl font-black text-text-primary">
-              1,240+
+              {stats.productsListed.toLocaleString('en-US')}
             </div>
             <span className="text-[11px] text-text-muted mt-0.5">products listed</span>
           </div>

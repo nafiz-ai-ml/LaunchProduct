@@ -22,6 +22,14 @@ import {
   PlusCircle,
   ExternalLink,
   Cpu,
+  Globe,
+  Users,
+  Coins,
+  ShoppingBag,
+  Box,
+  Feather,
+  Workflow,
+  LineChart,
 } from 'lucide-react';
 
 interface CategoryWithMeta extends Category {
@@ -88,11 +96,59 @@ const CATEGORY_VISUALS: Record<
     tags: ['#UIUX', '#DesignTokens', '#FigmaPlugins', '#CSS'],
     featured: ['PixelCraft', 'MotionLab', 'CanvasFlow'],
   },
-  'security-privacy': {
+  'domains': {
+    gradient: 'from-amber-500/20 via-yellow-500/10 to-transparent border-amber-500/30 text-amber-400',
+    icon: Globe,
+    tags: ['#Brandable', '#Domains', '#Names', '#Marketplace'],
+    featured: ['NextBrand', 'DomainDrop', 'NameCraft'],
+  },
+  'social': {
+    gradient: 'from-rose-500/20 via-orange-500/10 to-transparent border-rose-500/30 text-rose-400',
+    icon: Users,
+    tags: ['#Community', '#Virality', '#Creators', '#Launch'],
+    featured: ['Doomers', 'ViralClub', 'PulseSocial'],
+  },
+  'analytics': {
+    gradient: 'from-indigo-500/20 via-blue-500/10 to-transparent border-indigo-500/30 text-indigo-400',
+    icon: LineChart,
+    tags: ['#Metrics', '#Telemetry', '#Dashboards', '#Events'],
+    featured: ['DataPulse', 'TrackStack', 'InsightFlow'],
+  },
+  'finance': {
+    gradient: 'from-emerald-500/20 via-green-500/10 to-transparent border-emerald-500/30 text-emerald-400',
+    icon: Coins,
+    tags: ['#Fintech', '#Crypto', '#Billing', '#Invoicing'],
+    featured: ['LedgerPay', 'CoinStack', 'InvoiceSwift'],
+  },
+  'ecommerce': {
+    gradient: 'from-teal-500/20 via-emerald-500/10 to-transparent border-teal-500/30 text-teal-400',
+    icon: ShoppingBag,
+    tags: ['#Shopify', '#Checkout', '#D2C', '#Fulfillment'],
+    featured: ['CartFlow', 'DropShipPro', 'QuickCheckout'],
+  },
+  'boilerplates': {
+    gradient: 'from-sky-500/20 via-indigo-500/10 to-transparent border-sky-500/30 text-sky-400',
+    icon: Box,
+    tags: ['#Nextjs', '#StarterKit', '#FastLaunch', '#Tailwind'],
+    featured: ['ShipFastPro', 'LaunchBoiler', 'SaaSStarter'],
+  },
+  'security': {
     gradient: 'from-red-500/20 via-rose-500/10 to-transparent border-red-500/30 text-red-400',
     icon: Shield,
     tags: ['#ZeroTrust', '#Auth', '#Compliance', '#Encryption'],
     featured: ['VaultKey', 'ShieldMesh', 'GuardDog'],
+  },
+  'writing': {
+    gradient: 'from-fuchsia-500/20 via-purple-500/10 to-transparent border-fuchsia-500/30 text-fuchsia-400',
+    icon: Feather,
+    tags: ['#Copywriting', '#Storytelling', '#Blogs', '#Content'],
+    featured: ['WritePulse', 'StoryEngine', 'GhostCopy'],
+  },
+  'automation': {
+    gradient: 'from-violet-500/20 via-cyan-500/10 to-transparent border-violet-500/30 text-violet-400',
+    icon: Workflow,
+    tags: ['#Workflows', '#Webhooks', '#NoCode', '#Integrations'],
+    featured: ['AutoPulse', 'SyncFlow', 'TriggerZap'],
   },
 };
 

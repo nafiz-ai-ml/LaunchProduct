@@ -1,7 +1,9 @@
 import { Types } from 'mongoose';
 import { Product } from '../models/Product.model';
+import { Payment } from '../models/Payment.model';
+import { SystemSettings } from '../models/SystemSettings.model';
 import { ActivityEvent } from '../models/ActivityEvent.model';
-import { EventSource, ProductStatus } from '../shared/constants';
+import { EventSource, ProductStatus, PaymentStatus } from '../shared/constants';
 import { clickEventsQueue, sponsoredClickEventsQueue } from '../shared/click-queue';
 import { hashTelemetry } from './fraud.service';
 import { NotFoundError, AuthorizationError } from '../shared/errors';
@@ -362,6 +364,117 @@ export class AnalyticsService {
       },
       dailyMetrics,
       referrerBreakdown,
+    };
+  }
+
+  /**
+   * Track visitor atomic page visit.
+   * Increments Redis & MongoDB persistent counter. Starts from 0.
+   */
+  async trackVisit(ip: string, userAgent?: string): Promise<{ visitors: number }> {
+    if (userAgent && this.botUserAgentRegex.test(userAgent)) {
+      const stats = await this.getPublicStats();
+      return { visitors: stats.visitors };
+    }
+
+    let currentVisitors = 0;
+
+    // 1. Update MongoDB persistent record
+    try {
+      const updated = await SystemSettings.findOneAndUpdate(
+        { key: 'site_visitor_counter' },
+        {
+          $inc: { 'value.count': 1 },
+          $setOnInsert: { description: 'Live platform visitor counter' },
+          $set: { updatedAt: new Date() },
+        },
+        { upsert: true, new: true }
+      );
+      currentVisitors = updated?.value?.count || 1;
+    } catch (err: any) {
+      logger.warn({ err: err.message }, 'Failed to persist visitor counter in Mongo');
+    }
+
+    // 2. Increment in Redis if available
+    if (isRedisConnected()) {
+      try {
+        await redis.incr('stats:site:visitors');
+      } catch {
+        // fallback to Mongo
+      }
+    }
+
+    return { visitors: currentVisitors };
+  }
+
+  /**
+   * Public live platform statistics for Footer / About / Live stats.
+   * Real-time calculation from authoritative DB records. Starts from 0.
+   */
+  async getPublicStats(): Promise<{
+    visitors: number;
+    paidRankingVolumeCents: number;
+    paidRankingVolumeFormatted: string;
+    productsListed: number;
+  }> {
+    // 1. Get visitors (defaults to 0)
+    let visitors = 0;
+    try {
+      const record = await SystemSettings.findOne({ key: 'site_visitor_counter' }).lean();
+      visitors = record?.value?.count || 0;
+    } catch (err: any) {
+      logger.warn({ err: err.message }, 'Error retrieving visitor counter');
+    }
+
+    // 2. Aggregate confirmed paid ranking volume (defaults to 0)
+    let paidRankingVolumeCents = 0;
+    try {
+      const rankingAgg = await Payment.aggregate([
+        {
+          $match: {
+            status: PaymentStatus.SUCCEEDED,
+            paymentType: 'RANKING',
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalCents: { $sum: '$amountCents' },
+          },
+        },
+      ]);
+      paidRankingVolumeCents = rankingAgg[0]?.totalCents || 0;
+    } catch (err: any) {
+      logger.warn({ err: err.message }, 'Error aggregating paid ranking volume');
+    }
+
+    // 3. Count products listed (defaults to 0)
+    let productsListed = 0;
+    try {
+      productsListed = await Product.countDocuments({
+        status: ProductStatus.LIVE,
+        paidRankingAmountCents: { $gt: 0 },
+      });
+      // Fallback if no paid products yet: count all live products
+      if (productsListed === 0) {
+        productsListed = await Product.countDocuments({
+          status: ProductStatus.LIVE,
+        });
+      }
+    } catch (err: any) {
+      logger.warn({ err: err.message }, 'Error counting listed products');
+    }
+
+    const dollars = Math.floor(paidRankingVolumeCents / 100);
+    const paidRankingVolumeFormatted = dollars > 0
+      ? `$ ${dollars.toLocaleString('en-US')}`
+      : '$ 0';
+
+    return {
+      visitors,
+      paidRankingVolumeCents,
+      paidRankingVolumeFormatted,
+      productsListed,
     };
   }
 }

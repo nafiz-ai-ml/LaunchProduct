@@ -98,54 +98,54 @@ html, body {
 }
 
 .dark {
-  /* Brand Tokens (Dark Mode) */
-  --color-primary: #ff751f;
-  --color-primary-hover: #ff853a;
-  --color-primary-active: #e66210;
-  --color-primary-subtle: rgba(255, 117, 31, 0.15);
-  --color-primary-focus: rgba(255, 117, 31, 0.40);
+  /* Brand Tokens (Dark Mode: Radiant Sunset) */
+  --color-primary: #ff7a1a;
+  --color-primary-hover: #ff8e38;
+  --color-primary-active: #ea6407;
+  --color-primary-subtle: rgba(255, 122, 26, 0.12);
+  --color-primary-focus: rgba(255, 122, 26, 0.35);
 
-  --color-secondary: #FAFAF9;
-  --color-secondary-hover: #E7E5E4;
+  --color-secondary: #f1f5f9;
+  --color-secondary-hover: #e2e8f0;
 
-  /* Surfaces & Backgrounds (Dark) */
-  --color-bg: #0D0C0B;               /* Deep Obsidian Warm Black */
-  --color-surface: #181615;          /* Warm Charcoal: Primary Cards */
-  --color-surface-elevated: #22201D; /* Modals, Popovers */
-  --color-surface-sunken: #080706;   /* Recessed Wells */
+  /* Surfaces & Backgrounds (Dark: Deep Nocturnal Obsidian) */
+  --color-bg: #090a0f;               /* Pure deep midnight slate canvas */
+  --color-surface: #11141e;          /* Sleek dimensional glass card surface */
+  --color-surface-elevated: #181d2b; /* Modals, popovers, dropdowns */
+  --color-surface-sunken: #06070a;   /* Recessed inputs, wells, badges */
 
-  /* Text Tokens (Dark) */
-  --color-text-primary: #FAFAF9;     /* Warm White */
-  --color-text-secondary: #A8A29E;   /* Warm Gray */
-  --color-text-muted: #78716C;       /* Stone-500 */
-  --color-text-inverted: #0D0C0B;
+  /* Text Tokens (Dark: Crisp High-Contrast) */
+  --color-text-primary: #f8fafc;     /* Pure crisp white (16:1 ratio) */
+  --color-text-secondary: #94a3b8;   /* Slate-400 cool gray */
+  --color-text-muted: #64748b;       /* Slate-500 */
+  --color-text-inverted: #090a0f;
 
-  /* Borders & Dividers (Dark) */
-  --color-border: #292524;           /* Warm Dark Border */
-  --color-border-subtle: #1C1917;
-  --color-border-hover: #334155;     /* Slate-700 */
+  /* Borders & Dividers (Dark: Hairline Crisp) */
+  --color-border: #1e2538;           /* Crisp subtle border */
+  --color-border-subtle: #141926;
+  --color-border-hover: rgba(255, 122, 26, 0.45);
 
   /* Feedback & Status (Dark) */
-  --color-success: #10B981;
+  --color-success: #10b981;
   --color-success-bg: rgba(16, 185, 129, 0.12);
-  --color-success-border: rgba(16, 185, 129, 0.30);
+  --color-success-border: rgba(16, 185, 129, 0.28);
 
-  --color-warning: #F59E0B;
+  --color-warning: #f59e0b;
   --color-warning-bg: rgba(245, 158, 11, 0.12);
-  --color-warning-border: rgba(245, 158, 11, 0.30);
+  --color-warning-border: rgba(245, 158, 11, 0.28);
 
-  --color-error: #EF4444;
+  --color-error: #ef4444;
   --color-error-bg: rgba(239, 68, 68, 0.12);
-  --color-error-border: rgba(239, 68, 68, 0.30);
+  --color-error-border: rgba(239, 68, 68, 0.28);
 
-  --color-info: #ff751f;
-  --color-info-bg: rgba(255, 117, 31, 0.15);
-  --color-info-border: rgba(255, 117, 31, 0.30);
+  --color-info: #ff7a1a;
+  --color-info-bg: rgba(255, 122, 26, 0.14);
+  --color-info-border: rgba(255, 122, 26, 0.28);
 
   /* Sponsored / Promotion Demarcation (Dark) */
-  --color-sponsored-badge: #FBBF24;
-  --color-sponsored-bg: rgba(255, 117, 31, 0.08);
-  --color-sponsored-border: rgba(255, 117, 31, 0.30);
+  --color-sponsored-badge: #fbbf24;
+  --color-sponsored-bg: rgba(255, 122, 26, 0.08);
+  --color-sponsored-border: rgba(255, 122, 26, 0.30);
 }
 
 html {

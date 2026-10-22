@@ -5,11 +5,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'assets.launchproduct.io',
-      },
-      {
-        protocol: 'https',
-        hostname: 'cdn.launchproduct.com',
+        hostname: '**',
       },
       {
         protocol: 'http',

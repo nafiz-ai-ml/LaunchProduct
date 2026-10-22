@@ -91,6 +91,43 @@ export class AnalyticsController {
       next(error);
     }
   }
+
+  /**
+   * 3. GET /api/v1/analytics/public-stats
+   * Retrieve dynamic platform stats (visitors, revenue, products listed).
+   * Real-time DB backed, starts at 0.
+   */
+  async getPublicStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const stats = await analyticsService.getPublicStats();
+      res.status(200).json({
+        success: true,
+        data: stats,
+        meta: getMetadata(req),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 4. POST /api/v1/analytics/track-visit
+   * Atomically records a unique page visit.
+   */
+  async trackVisit(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const clientIp = getClientIp(req);
+      const userAgent = req.headers['user-agent'] as string | undefined;
+      const result = await analyticsService.trackVisit(clientIp, userAgent);
+      res.status(200).json({
+        success: true,
+        data: result,
+        meta: getMetadata(req),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const analyticsController = new AnalyticsController();

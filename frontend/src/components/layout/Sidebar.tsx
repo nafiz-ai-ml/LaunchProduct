@@ -33,6 +33,15 @@ const CATEGORIES = [
   { slug: 'marketing-tools', name: 'Marketing Tools' },
   { slug: 'seo-tools', name: 'SEO Tools' },
   { slug: 'design-tools', name: 'Design Tools' },
+  { slug: 'domains', name: 'Domains' },
+  { slug: 'social', name: 'Social & Community' },
+  { slug: 'analytics', name: 'Analytics & Data' },
+  { slug: 'finance', name: 'Finance & Crypto' },
+  { slug: 'ecommerce', name: 'E-Commerce' },
+  { slug: 'boilerplates', name: 'Boilerplates & Starters' },
+  { slug: 'security', name: 'Security & Privacy' },
+  { slug: 'writing', name: 'Writing & Content' },
+  { slug: 'automation', name: 'Automation & No-Code' },
 ];
 
 export function Sidebar() {

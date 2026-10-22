@@ -13,8 +13,8 @@ async function runSeedTests() {
   // =========================================================================
   // 1. MVP Categories Test
   // =========================================================================
-  console.log('\n1. Testing 8 MVP Categories...');
-  assert.strictEqual(SEED_CATEGORIES.length, 8, 'Must have exactly 8 MVP categories');
+  console.log('\n1. Testing 17 Platform Categories...');
+  assert.strictEqual(SEED_CATEGORIES.length, 17, 'Must have 17 categories');
 
   const expectedCategories = [
     { slug: 'ai-tools', name: 'AI Tools', description: 'Artificial intelligence tools and assistants', sortOrder: 1 },
@@ -25,6 +25,15 @@ async function runSeedTests() {
     { slug: 'marketing-tools', name: 'Marketing Tools', description: 'Marketing and growth tools', sortOrder: 6 },
     { slug: 'seo-tools', name: 'SEO Tools', description: 'SEO and content optimization tools', sortOrder: 7 },
     { slug: 'design-tools', name: 'Design Tools', description: 'Design and creative tools', sortOrder: 8 },
+    { slug: 'domains', name: 'Domains', description: 'Domain names, name generators, and domain marketplaces', sortOrder: 9 },
+    { slug: 'social', name: 'Social & Community', description: 'Viral networks, social launch, creator & community tools', sortOrder: 10 },
+    { slug: 'analytics', name: 'Analytics & Data', description: 'Product metrics, data tracking, and analytics dashboards', sortOrder: 11 },
+    { slug: 'finance', name: 'Finance & Crypto', description: 'Fintech, payments, crypto, web3, and accounting software', sortOrder: 12 },
+    { slug: 'ecommerce', name: 'E-Commerce', description: 'Online storefronts, direct-to-consumer software, and checkout tools', sortOrder: 13 },
+    { slug: 'boilerplates', name: 'Boilerplates & Starters', description: 'Next.js starter kits, SaaS templates, and rapid scaffolding kits', sortOrder: 14 },
+    { slug: 'security', name: 'Security & Privacy', description: 'Cybersecurity, privacy compliance, identity, and authentication', sortOrder: 15 },
+    { slug: 'writing', name: 'Writing & Content', description: 'AI copywriting, publishing, storytelling, and content creation', sortOrder: 16 },
+    { slug: 'automation', name: 'Automation & No-Code', description: 'Workflow automation, no-code visual builders, and integrations', sortOrder: 17 },
   ];
 
   for (let i = 0; i < expectedCategories.length; i++) {
@@ -35,7 +44,7 @@ async function runSeedTests() {
     assert.strictEqual(actual.description, expected.description, `Category ${i + 1} description must match`);
     assert.strictEqual(actual.sortOrder, expected.sortOrder, `Category ${i + 1} sortOrder must be ${expected.sortOrder}`);
   }
-  console.log('✓ All 8 MVP categories verified in exact required order with 1-based sortOrder');
+  console.log('✓ All 17 categories verified in exact required order with 1-based sortOrder');
 
   // =========================================================================
   // 2. System Settings Test
