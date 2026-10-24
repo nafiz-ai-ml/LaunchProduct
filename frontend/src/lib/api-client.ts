@@ -1,4 +1,4 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError } from 'axios';
 import { ApiResponse } from '@/types';
 
 const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -20,36 +20,11 @@ export class ApiError extends Error {
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: 15000,
 });
-
-// Request interceptor: Attach Authorization Bearer token from localStorage or URL search
-apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    if (typeof window !== 'undefined') {
-      let token = localStorage.getItem('lp_token');
-      if (!token) {
-        try {
-          const urlParams = new URLSearchParams(window.location.search);
-          const tokenFromUrl = urlParams.get('token');
-          if (tokenFromUrl) {
-            token = tokenFromUrl;
-            localStorage.setItem('lp_token', tokenFromUrl);
-          }
-        } catch {}
-      }
-      if (token && !config.headers.Authorization) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 // Response interceptor: Extract data and normalize errors
 apiClient.interceptors.response.use(

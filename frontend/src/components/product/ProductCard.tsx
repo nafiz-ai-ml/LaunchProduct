@@ -3,11 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { Product } from '@/types';
-import { UpvoteButton } from './UpvoteButton';
+import { sanitizeImageUrl } from '@/lib/safe-url';
 import {
   ShieldCheck,
   ExternalLink,
-  MessageSquare,
   Sparkles,
 } from 'lucide-react';
 
@@ -16,7 +15,6 @@ interface ProductCardProps {
   rank?: number;
   isSponsored?: boolean;
   sponsorBadge?: string;
-  onAuthRequired?: () => void;
   className?: string;
 }
 
@@ -25,7 +23,6 @@ export function ProductCard({
   rank,
   isSponsored = false,
   sponsorBadge = 'Featured Launch Boost',
-  onAuthRequired,
   className = '',
 }: ProductCardProps) {
   const categoryName = typeof product.category === 'object' && product.category !== null
@@ -57,94 +54,72 @@ export function ProductCard({
             <span>{sponsorBadge}</span>
           </div>
           <span className="text-[10px] uppercase tracking-wider text-sponsored-text/80 font-mono">
-            Promoted
+            Featured
           </span>
         </div>
       )}
 
       <div className="p-4 sm:p-5 flex items-start gap-3 sm:gap-4">
-        {/* Desktop Rank Number (if organic) */}
-        {!isSponsored && rankDisplay && (
-          <div className="hidden sm:flex flex-col items-center justify-center pt-2 w-8 text-center flex-shrink-0">
-            <span className="font-mono text-sm font-bold text-text-muted group-hover:text-text-primary transition-colors">
-              {rankDisplay}
-            </span>
+        {/* Rank Number */}
+        {rankDisplay && (
+          <div className="flex-shrink-0 flex items-center justify-center pt-1 font-mono text-xs font-bold text-text-muted select-none w-7 text-center">
+            {rankDisplay}
           </div>
         )}
 
-        {/* Product Logo (No raster scaling blur on hover; container handles elevation) */}
+        {/* Product Logo */}
         <Link
-          href={`/products/${product.slug || product.id}`}
-          className="flex-shrink-0 relative focus-ring rounded-xl"
+          href={`/products/${product.slug}`}
+          className="flex-shrink-0 relative w-12 h-12 rounded-xl overflow-hidden border border-border bg-surface-sunken hover:opacity-90 transition-opacity"
         >
-          {product.logoUrl ? (
-            <img
-              src={product.logoUrl}
-              alt={product.name}
-              className="w-12 h-12 rounded-xl object-cover border border-border shadow-2xs"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-xl bg-primary-subtle text-primary border border-border flex items-center justify-center font-bold text-lg">
-              {product.name.charAt(0)}
-            </div>
-          )}
+          <img
+            src={sanitizeImageUrl(product.logoUrl || (product as any).media?.logoUrl, '/brand/icon.svg')}
+            alt={`${product.name} logo`}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/brand/icon.svg';
+            }}
+          />
         </Link>
 
-        {/* Content Section */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            {/* Mobile Rank Badge (<640px) */}
-            {!isSponsored && rankDisplay && (
-              <span className="sm:hidden font-mono text-[11px] font-bold text-text-muted bg-surface-sunken px-1.5 py-0.5 rounded-md border border-border">
-                {rankDisplay}
-              </span>
-            )}
-
+        {/* Product Info Middle Column */}
+        <div className="flex-1 min-w-0 pr-2">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
             <Link
-              href={`/products/${product.slug || product.id}`}
-              className="text-sm sm:text-base font-bold text-text-primary hover:text-primary transition-colors truncate focus-ring rounded"
+              href={`/products/${product.slug}`}
+              className="text-sm sm:text-base font-bold text-text-primary hover:text-primary transition-colors truncate tracking-tight"
             >
               {product.name}
             </Link>
 
             {product.isVerified && (
-              <span title="Verified Founder Ownership via DNS">
-                <ShieldCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <span
+                className="inline-flex items-center text-primary hover:text-primary-hover"
+                title="Verified Founder"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
               </span>
             )}
 
-            {/* Category Pill */}
-            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-surface-sunken text-text-secondary border border-border">
+            {/* Category Tag */}
+            <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-surface-sunken text-text-secondary border border-border-subtle hidden sm:inline-block">
               {categoryName}
             </span>
 
-            {/* Pricing Model Badge */}
-            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-subtle text-primary border border-primary/20">
+            {/* Pricing Tag */}
+            <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-primary-subtle text-primary border border-primary/20 capitalize">
               {pricingModel}
             </span>
-
-            {/* Pay-to-Rank Amount Pill (if ranked) */}
-            {product.paidRankingAmountCents !== undefined && product.paidRankingAmountCents > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
-                ${(product.paidRankingAmountCents / 100).toFixed(2)} Rank
-              </span>
-            )}
           </div>
 
-          {/* Product Tagline */}
-          <p className="mt-1 text-xs text-text-secondary line-clamp-2 leading-relaxed">
+          {/* Tagline */}
+          <p className="text-xs sm:text-sm text-text-secondary line-clamp-2 leading-relaxed mb-2.5">
             {product.tagline}
           </p>
 
-          {/* Bottom Metadata & Outbound Link */}
-          <div className="mt-3 flex items-center gap-4 text-[11px] text-text-muted">
-            {/* Reviews Count */}
-            <span className="flex items-center gap-1 hover:text-text-primary transition-colors">
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>{product.reviewsCount ?? 0} reviews</span>
-            </span>
-
-            {/* Tags (Desktop only) */}
+          {/* Bottom Meta & Tags */}
+          <div className="flex items-center gap-3 text-xs text-text-muted">
             {product.tags && product.tags.length > 0 && (
               <div className="hidden md:flex items-center gap-1.5">
                 {product.tags.slice(0, 3).map((tag) => (
@@ -171,14 +146,17 @@ export function ProductCard({
           </div>
         </div>
 
-        {/* Upvote Button Column */}
-        <div className="flex-shrink-0 pl-1 sm:pl-2">
-          <UpvoteButton
-            productId={product.id}
-            initialVotesCount={product.upvotesCount ?? 0}
-            size="md"
-            onAuthRequired={onAuthRequired}
-          />
+        {/* Action Button */}
+        <div className="flex-shrink-0 pl-1 sm:pl-2 flex items-center">
+          <a
+            href={outboundUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition-colors"
+          >
+            <span>Visit</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
       </div>
     </div>

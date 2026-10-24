@@ -66,10 +66,6 @@ function executeInMemorySlidingWindow(
  * Extracts normalized client IP address
  */
 export function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
-    return forwarded.split(',')[0].trim();
-  }
   return req.ip || req.socket.remoteAddress || '127.0.0.1';
 }
 
@@ -176,7 +172,7 @@ export function createRateLimiter(config: RateLimitConfig) {
 }
 
 /**
- * 1. publicRateLimit: 60 req/min per IP
+ * 1. publicRateLimit: 60 req/min per IP (using req.ip)
  */
 export const publicRateLimit = createRateLimiter({
   prefix: 'public',
@@ -186,57 +182,16 @@ export const publicRateLimit = createRateLimiter({
 });
 
 /**
- * 2. authRateLimit: 120 req/min per userId (falls back to IP if not authenticated)
- */
-export const authRateLimit = createRateLimiter({
-  prefix: 'auth',
-  limit: 120,
-  windowMs: 60 * 1000,
-  keyGenerator: (req) => req.user?.userId || getClientIp(req),
-});
-
-/**
- * 3. voteRateLimit: 10 req/min per userId + /24 IP subnet
- */
-export const voteRateLimit = createRateLimiter({
-  prefix: 'vote',
-  limit: 10,
-  windowMs: 60 * 1000,
-  keyGenerator: (req) => {
-    const userOrIp = req.user?.userId || 'anon';
-    const subnet = getSubnet24(getClientIp(req));
-    return `${userOrIp}:${subnet}`;
-  },
-});
-
-/**
- * 4. magicLinkRateLimit: 5 req/hour per /24 IP subnet + email domain
- */
-export const magicLinkRateLimit = createRateLimiter({
-  prefix: 'magic',
-  limit: 5,
-  windowMs: 60 * 60 * 1000,
-  keyGenerator: (req) => {
-    const subnet = getSubnet24(getClientIp(req));
-    const domain = getEmailDomain(req.body?.email);
-    return `${subnet}:${domain}`;
-  },
-});
-
-/**
- * 5. submissionRateLimit: 10 req/hour per userId
+ * 2. submissionRateLimit: 10 req/hour per IP (using req.ip)
  */
 export const submissionRateLimit = createRateLimiter({
   prefix: 'submission',
   limit: 10,
   windowMs: 60 * 60 * 1000,
-  keyGenerator: (req) => req.user?.userId || getClientIp(req),
+  keyGenerator: (req) => getClientIp(req),
 });
 
 export default {
   publicRateLimit,
-  authRateLimit,
-  voteRateLimit,
-  magicLinkRateLimit,
   submissionRateLimit,
 };

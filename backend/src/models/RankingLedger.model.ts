@@ -7,7 +7,6 @@ export interface IRankingLedger {
   _id: Types.ObjectId;
   paymentId: Types.ObjectId;
   productId: Types.ObjectId;
-  founderId?: Types.ObjectId;
   payerEmail?: string;
   contributionType: RankingContributionType;
   amountCents: number;
@@ -39,12 +38,6 @@ const RankingLedgerSchema = new Schema<IRankingLedger>(
       type: Schema.Types.ObjectId,
       ref: 'Product',
       required: [true, 'Product reference is required'],
-    },
-    founderId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-      required: false,
     },
     payerEmail: {
       type: String,
@@ -132,9 +125,6 @@ RankingLedgerSchema.index({ productId: 1, appliedAt: -1 });
 
 // 3. Daily date ledger query index
 RankingLedgerSchema.index({ targetDailyDate: 1, status: 1 });
-
-// 4. Founder audit query index
-RankingLedgerSchema.index({ founderId: 1, appliedAt: -1 });
 
 export const RankingLedger = mongoose.model<IRankingLedger>('RankingLedger', RankingLedgerSchema);
 export default RankingLedger;

@@ -4,6 +4,7 @@ import { redis } from '../shared/redis';
 import { emailQueue } from '../shared/email-queue';
 import { register, updateDynamicMetrics } from '../shared/metrics';
 import { logger } from '../shared/logger';
+import { config } from '../shared/config';
 
 interface DependencyStatus {
   status: 'connected' | 'disconnected' | 'active' | 'inactive';
@@ -12,71 +13,33 @@ interface DependencyStatus {
   error?: string;
 }
 
+import crypto from 'crypto';
+
 /**
- * Checks authorization for Prometheus scrape requests
- * Allows requests from local loopback, private subnets, configured whitelists, or Basic Auth.
+ * Checks authorization for Prometheus scrape requests.
+ * Strictly requires METRICS_TOKEN header via constant-time comparison.
  */
 export function isAuthorizedForMetrics(req: Request): boolean {
-  // Always permit in testing or local development
-  if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
-    return true;
+  const expectedToken = process.env.METRICS_TOKEN || config.METRICS_TOKEN;
+  if (!expectedToken) {
+    return false;
   }
 
-  // 1. IP Whitelist verification (Private IPv4 & IPv6 loopbacks)
-  const clientIp =
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-    req.socket.remoteAddress ||
-    req.ip ||
-    '';
+  const token =
+    (req.headers['x-metrics-token'] as string) ||
+    (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7).trim() : '');
 
-  const isLocalOrPrivate =
-    clientIp === '127.0.0.1' ||
-    clientIp === '::1' ||
-    clientIp === '::ffff:127.0.0.1' ||
-    clientIp.startsWith('10.') ||
-    clientIp.startsWith('192.168.') ||
-    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(clientIp);
-
-  if (isLocalOrPrivate) {
-    return true;
+  if (!token) {
+    return false;
   }
 
-  if (process.env.METRICS_ALLOWED_IPS) {
-    const allowed = process.env.METRICS_ALLOWED_IPS.split(',').map((ip) => ip.trim());
-    if (allowed.includes(clientIp)) {
-      return true;
-    }
+  const bufA = Buffer.from(token, 'utf8');
+  const bufB = Buffer.from(expectedToken, 'utf8');
+  if (bufA.length !== bufB.length) {
+    return false;
   }
 
-  // 2. HTTP Basic Auth / Bearer Token fallback
-  const authHeader = req.headers.authorization;
-  if (authHeader) {
-    if (authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7).trim();
-      const expectedToken = process.env.METRICS_AUTH_TOKEN || process.env.JWT_SECRET;
-      if (token && token === expectedToken) {
-        return true;
-      }
-    }
-
-    if (authHeader.startsWith('Basic ')) {
-      try {
-        const credentials = Buffer.from(authHeader.substring(6).trim(), 'base64').toString('ascii');
-        const [username, password] = credentials.split(':');
-        const expectedUser = process.env.METRICS_USER || 'prometheus';
-        const expectedPassword =
-          process.env.METRICS_PASSWORD || process.env.ADMIN_PASSWORD || 'launchproduct_metrics_secret';
-
-        if (username === expectedUser && password === expectedPassword) {
-          return true;
-        }
-      } catch {
-        return false;
-      }
-    }
-  }
-
-  return false;
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 export class HealthController {
@@ -199,24 +162,34 @@ export class HealthController {
       };
     }
 
+    if (process.env.NODE_ENV === 'production') {
+      if (dependencies.mongodb.error) {
+        dependencies.mongodb.error = 'Database service unavailable';
+      }
+      if (dependencies.redis.error) {
+        dependencies.redis.error = 'Cache service unavailable';
+      }
+      if (dependencies.bullmq.error) {
+        dependencies.bullmq.error = 'Queue service unavailable';
+      }
+    }
+
     const httpStatus = allHealthy ? 200 : 503;
     res.status(httpStatus).json({
       status: allHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
-      uptimeSeconds: Math.floor(process.uptime()),
       dependencies,
     });
   }
 
   /**
    * 2. GET /api/health/live
-   * Kubernetes Liveness Probe (Instant 200 OK, no database round-trips)
+   * Kubernetes Liveness Probe (Instant 200 OK, public safe status)
    */
   getLiveness(_req: Request, res: Response): void {
     res.status(200).json({
       status: 'alive',
       timestamp: new Date().toISOString(),
-      uptimeSeconds: Math.floor(process.uptime()),
     });
   }
 
@@ -230,26 +203,15 @@ export class HealthController {
 
   /**
    * 4. GET /api/metrics
-   * Prometheus Scrape Endpoint
+   * Prometheus Scrape Endpoint (Protected by metricsAuthMiddleware)
    * Returns text/plain; version=0.0.4 Prometheus exposition format
    */
-  async getMetrics(req: Request, res: Response): Promise<void> {
-    // 1. IP whitelist / Basic Auth authorization guard
-    if (!isAuthorizedForMetrics(req)) {
-      res
-        .status(401)
-        .set('WWW-Authenticate', 'Basic realm="Prometheus Metrics"')
-        .json({
-          error: 'Unauthorized metrics scrape: IP or credentials not authorized',
-        });
-      return;
-    }
-
+  async getMetrics(_req: Request, res: Response): Promise<void> {
     try {
-      // 2. Update dynamic gauge metrics from DB and queues
+      // Update dynamic gauge metrics from DB and queues
       await updateDynamicMetrics();
 
-      // 3. Return metrics in Prometheus exposition format
+      // Return metrics in Prometheus exposition format
       res.set('Content-Type', register.contentType);
       res.send(await register.metrics());
     } catch (err: any) {

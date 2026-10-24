@@ -54,10 +54,7 @@ export function Footer() {
     };
   }, []);
 
-  // Hide global footer on auth login pages if accessed
-  if (pathname === '/auth' || pathname?.startsWith('/auth/')) {
-    return null;
-  }
+
 
   return (
     <footer className="border-t border-border bg-surface/40 backdrop-blur-md mt-auto pt-12 pb-16 px-4">

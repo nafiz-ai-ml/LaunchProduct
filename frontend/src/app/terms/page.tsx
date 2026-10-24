@@ -174,7 +174,7 @@ export default function TermsOfServicePage() {
               No Guarantee of Traffic, Customers, or Revenue
             </h2>
             <p className="mb-3 text-xs sm:text-sm font-medium">
-              Purchasing a Pay-to-Rank position guarantees placement on the applicable leaderboard according to qualifying payment amounts. <strong>Paid ranking does NOT guarantee traffic, click-throughs, user signups, customers, sales, or business revenue.</strong>
+              Purchasing a Pay-to-Rank position guarantees placement on the applicable leaderboard according to qualifying payment amounts. <strong>Paid ranking does NOT guarantee traffic, click-throughs, user conversions, customers, sales, or business revenue.</strong>
             </p>
             <p className="text-xs text-text-muted">
               Outbound conversion, click-through rates, and customer acquisition depend solely on your product&apos;s market fit, visual assets, landing page conversion, and external economic factors. LaunchProduct disclaims all warranties regarding business outcomes.

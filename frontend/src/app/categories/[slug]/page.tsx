@@ -4,8 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ProductCard } from '@/components/product/ProductCard';
-import { AuthModal } from '@/components/auth/AuthModal';
 import { apiClient } from '@/lib/api-client';
+import { sanitizeImageUrl } from '@/lib/safe-url';
 import { Product, Category } from '@/types';
 import {
   Compass,
@@ -270,7 +270,7 @@ export default function CategoryDetailPage() {
                 <div className="w-12 h-12 rounded-xl bg-surface border border-slate-200 dark:border-slate-700 p-2 flex items-center justify-center shrink-0">
                   {spotlightProduct.logoUrl ? (
                     <img
-                      src={spotlightProduct.logoUrl}
+                      src={sanitizeImageUrl(spotlightProduct.logoUrl)}
                       alt={spotlightProduct.name}
                       className="w-full h-full object-contain rounded-lg"
                     />
@@ -425,14 +425,11 @@ export default function CategoryDetailPage() {
                 key={product.id || (product as any)._id}
                 product={product}
                 rank={index + 1}
-                onAuthRequired={() => setIsAuthModalOpen(true)}
               />
             ))}
           </div>
         )}
       </div>
-
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 }

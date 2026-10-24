@@ -3,17 +3,7 @@
  * Source of truth: PRD.md, System Architecture.md, database-schema.md
  */
 
-// 1. All RBAC Role Enums
-export enum UserRole {
-  VISITOR = 'VISITOR',
-  HUNTER = 'HUNTER',
-  FOUNDER = 'FOUNDER',
-  MODERATOR = 'MODERATOR',
-  ADMIN = 'ADMIN',
-}
-export type UserRoleType = `${UserRole}`;
-
-// 2. Product Status Enums
+// 1. Product Status Enums
 export enum ProductStatus {
   DRAFT = 'DRAFT',
   PENDING_REVIEW = 'PENDING_REVIEW',
@@ -25,36 +15,6 @@ export enum ProductStatus {
   DELETED = 'DELETED',
 }
 export type ProductStatusType = `${ProductStatus}`;
-
-// 3. Vote Status Enums
-export enum VoteStatus {
-  VALID = 'VALID',
-  FLAGGED = 'FLAGGED',
-  QUARANTINED = 'QUARANTINED',
-  REJECTED_BOT = 'REJECTED_BOT',
-  RETRACTED = 'RETRACTED',
-}
-export type VoteStatusType = `${VoteStatus}`;
-
-// 4. Ownership Verification Status Enums
-export enum VerificationStatus {
-  UNVERIFIED = 'UNVERIFIED',
-  PENDING = 'PENDING',
-  VERIFIED = 'VERIFIED',
-  REVOKED = 'REVOKED',
-  FAILED_EXPIRED = 'FAILED_EXPIRED',
-}
-export type VerificationStatusType = `${VerificationStatus}`;
-
-// 5. Campaign Status Enums
-export enum CampaignStatus {
-  RESERVED = 'RESERVED',
-  ACTIVE = 'ACTIVE',
-  EXPIRED = 'EXPIRED',
-  CANCELLED = 'CANCELLED',
-  PAUSED = 'PAUSED',
-}
-export type CampaignStatusType = `${CampaignStatus}`;
 
 // 6. Payment Status Enums
 export enum PaymentStatus {

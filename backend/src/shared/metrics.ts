@@ -1,6 +1,6 @@
 import client from 'prom-client';
-import { Vote } from '../models/Vote.model';
-import { Campaign } from '../models/Campaign.model';
+import { Product } from '../models/Product.model';
+import { ProductStatus } from './constants';
 import { scraperQueue } from './scraper-queue';
 import { logger } from './logger';
 
@@ -20,10 +20,10 @@ export const httpRequestsTotal = new client.Counter({
   registers: [register],
 });
 
-// 3. Active Valid Votes Total Gauge
-export const activeVotesTotal = new client.Gauge({
-  name: 'launchproduct_active_votes_total',
-  help: 'Current total count of active VALID community votes on LaunchProduct',
+// 3. Live Products Total Gauge
+export const liveProductsTotal = new client.Gauge({
+  name: 'launchproduct_live_products_total',
+  help: 'Current total count of LIVE products on LaunchProduct',
   registers: [register],
 });
 
@@ -34,21 +34,7 @@ export const scraperQueueWaiting = new client.Gauge({
   registers: [register],
 });
 
-// 5. Quarantine Queue Depth Gauge
-export const quarantineQueueDepth = new client.Gauge({
-  name: 'launchproduct_quarantine_queue_depth',
-  help: 'Number of quarantined votes pending moderator investigation',
-  registers: [register],
-});
-
-// 6. Active Campaign Slots Gauge
-export const campaignSlotsActive = new client.Gauge({
-  name: 'launchproduct_campaign_slots_active',
-  help: 'Number of currently active commercial sponsorship campaigns in inventory slots',
-  registers: [register],
-});
-
-// 7. Deprecated Endpoint Hits Counter (RFC 8594 Sunset tracking)
+// 5. Deprecated Endpoint Hits Counter (RFC 8594 Sunset tracking)
 export const deprecatedEndpointHitsTotal = new client.Counter({
   name: 'launchproduct_deprecated_endpoint_hits_total',
   help: 'Total number of requests hitting deprecated endpoints for RFC 8594 sunset monitoring',
@@ -60,37 +46,15 @@ export const deprecatedEndpointHitsTotal = new client.Counter({
  * Updates dynamic gauge metrics by querying MongoDB and BullMQ before scraping
  */
 export async function updateDynamicMetrics(): Promise<void> {
-  const now = new Date();
-
-  // 1. Live VALID votes
+  // 1. Live products
   try {
-    const validCount = await Vote.countDocuments({ status: 'VALID' });
-    activeVotesTotal.set(validCount);
+    const liveCount = await Product.countDocuments({ status: ProductStatus.LIVE });
+    liveProductsTotal.set(liveCount);
   } catch (err: any) {
-    logger.warn({ err: err.message }, 'Failed to collect active votes metric');
+    logger.warn({ err: err.message }, 'Failed to collect live products metric');
   }
 
-  // 2. QUARANTINED votes pending review
-  try {
-    const quarantinedCount = await Vote.countDocuments({ status: 'QUARANTINED' });
-    quarantineQueueDepth.set(quarantinedCount);
-  } catch (err: any) {
-    logger.warn({ err: err.message }, 'Failed to collect quarantine queue depth metric');
-  }
-
-  // 3. Active campaign slots
-  try {
-    const activeCampaigns = await Campaign.countDocuments({
-      status: 'ACTIVE',
-      startsAt: { $lte: now },
-      endsAt: { $gte: now },
-    });
-    campaignSlotsActive.set(activeCampaigns);
-  } catch (err: any) {
-    logger.warn({ err: err.message }, 'Failed to collect active campaigns metric');
-  }
-
-  // 4. Pending BullMQ scraper queue jobs
+  // 2. Pending BullMQ scraper queue jobs
   try {
     const waitingScraperJobs = await scraperQueue.getWaitingCount();
     scraperQueueWaiting.set(waitingScraperJobs);
@@ -102,10 +66,8 @@ export async function updateDynamicMetrics(): Promise<void> {
 export default {
   register,
   httpRequestsTotal,
-  activeVotesTotal,
+  liveProductsTotal,
   scraperQueueWaiting,
-  quarantineQueueDepth,
-  campaignSlotsActive,
   deprecatedEndpointHitsTotal,
   updateDynamicMetrics,
 };

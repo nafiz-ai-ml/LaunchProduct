@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { ProductCard } from '@/components/product/ProductCard';
-import { AuthModal } from '@/components/auth/AuthModal';
 import { apiClient } from '@/lib/api-client';
 import { Product, Category } from '@/types';
 import {
@@ -91,7 +90,6 @@ export default function TrendingPage() {
   const [timeframe, setTimeframe] = useState<'today' | '4h' | 'week'>('today');
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Fetch trending products using plural endpoint: /api/v1/leaderboards/trending
   async function loadTrendingProducts() {
@@ -323,21 +321,12 @@ export default function TrendingPage() {
                 <ProductCard
                   product={product}
                   rank={index + 1}
-                  onAuthRequired={() => setIsAuthModalOpen(true)}
                 />
               </div>
             ))}
           </div>
         )}
       </main>
-
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        title="Sign In to Upvote Trending Tools"
-        subtitle="Cast your verified community vote to boost real-time trending velocity."
-      />
     </div>
   );
 }

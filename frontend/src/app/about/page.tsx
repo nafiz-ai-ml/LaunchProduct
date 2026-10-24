@@ -54,7 +54,7 @@ export default function AboutPage() {
               <span>100% Accountless Workflow</span>
             </div>
             <p className="text-xs text-text-muted leading-relaxed">
-              No signups, passwords, or cumbersome founder dashboards. Submit your product URL, select your entry payment ($5.99 min), and get instant confirmed leaderboard placement.
+              No accounts, passwords, or cumbersome founder dashboards. Submit your product URL, select your entry payment ($5.99 min), and get instant confirmed leaderboard placement.
             </p>
           </div>
 

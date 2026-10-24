@@ -8,6 +8,7 @@ import {
   X,
   Image as ImageIcon,
 } from 'lucide-react';
+import { isSafeUrl } from '@/lib/safe-url';
 
 interface MediaGalleryProps {
   screenshots?: string[];
@@ -19,11 +20,11 @@ export function MediaGallery({ screenshots = [], bannerUrl, productName }: Media
   // Combine banner and screenshots into unified image list
   const allImages = React.useMemo(() => {
     const list: string[] = [];
-    if (bannerUrl && !list.includes(bannerUrl)) {
+    if (bannerUrl && isSafeUrl(bannerUrl) && !list.includes(bannerUrl)) {
       list.push(bannerUrl);
     }
     screenshots.forEach((s) => {
-      if (s && !list.includes(s)) {
+      if (s && isSafeUrl(s) && !list.includes(s)) {
         list.push(s);
       }
     });

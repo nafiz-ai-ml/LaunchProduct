@@ -1,19 +1,15 @@
 import crypto from 'crypto';
 import mongoose, { Types } from 'mongoose';
-import { Campaign, CampaignTier } from '../models/Campaign.model';
 import { Product } from '../models/Product.model';
 import { Payment } from '../models/Payment.model';
 import { RankingLedger, RankingContributionType } from '../models/RankingLedger.model';
 import { PaymentWebhookEvent } from '../models/PaymentWebhookEvent.model';
 import { ActivityEvent } from '../models/ActivityEvent.model';
-import { User } from '../models/User.model';
-import { campaignQueue } from '../shared/campaign-queue';
 import { emailQueue } from '../shared/email-queue';
 import {
   PaymentStatus,
   ProductStatus,
   EventSource,
-  SPONSORSHIP_DURATIONS_HOURS,
   MIN_INITIAL_RANKING_PAYMENT_CENTS,
   MIN_RANKING_INCREMENT_CENTS,
 } from '../shared/constants';
@@ -21,24 +17,11 @@ import { redis, isRedisConnected } from '../shared/redis';
 import { rankingService } from './ranking.service';
 import { config } from '../shared/config';
 import { logger } from '../shared/logger';
-import { AppError, AuthenticationError, ValidationError, NotFoundError } from '../shared/errors';
-
-export interface CheckoutSessionParams {
-  tier: CampaignTier;
-  amountCents: number;
-  campaignId: string;
-  successUrl: string;
-  cancelUrl: string;
-  founderEmail?: string;
-  productName?: string;
-  targetCategorySlug?: string;
-}
+import { AppError, ValidationError, NotFoundError } from '../shared/errors';
 
 export interface RankingCheckoutSessionParams {
   productId: string;
   productName: string;
-  founderId?: string;
-  founderEmail?: string;
   payerEmail?: string;
   contributionType?: 'INITIAL_ENTRY' | 'DAILY' | 'ALL_TIME_BOOST';
   amountCents: number;
@@ -53,15 +36,14 @@ export interface CheckoutSessionResult {
 
 export interface ParsedWebhookEvent {
   eventType: string;
-  provider: 'paddle' | 'lemonsqueezy';
+  provider: 'paddle';
   providerEventId: string;
   providerPaymentId?: string;
   providerOrderId?: string;
   providerCustomerId?: string;
-  campaignId?: string;
   productId?: string;
-  founderId?: string;
-  paymentType?: 'RANKING' | 'SPONSORSHIP';
+  payerEmail?: string;
+  paymentType?: 'RANKING';
   amountCents: number;
   currency: string;
   status: PaymentStatus;
@@ -69,7 +51,6 @@ export interface ParsedWebhookEvent {
 }
 
 export interface IPaymentProvider {
-  createCheckoutSession(params: CheckoutSessionParams): Promise<CheckoutSessionResult>;
   createRankingCheckoutSession(params: RankingCheckoutSessionParams): Promise<CheckoutSessionResult>;
   verifyWebhookSignature(rawBody: string | Buffer, signatureHeader: string): boolean;
   parseWebhookEvent(rawBody: string | Buffer | Record<string, unknown>): ParsedWebhookEvent;
@@ -106,43 +87,19 @@ async function invalidateLeaderboardCaches(): Promise<void> {
  * Paddle Global Merchant of Record Implementation
  */
 export class PaddleProvider implements IPaymentProvider {
-  private webhookSecret: string;
+  private explicitSecret?: string;
 
   constructor(secret?: string) {
-    this.webhookSecret =
-      secret ||
-      process.env.PADDLE_WEBHOOK_SECRET ||
-      config.PADDLE_WEBHOOK_SECRET ||
-      'paddle_webhook_secret_dev_key_fallback_12345';
+    this.explicitSecret = secret;
   }
 
-  async createCheckoutSession(params: CheckoutSessionParams): Promise<CheckoutSessionResult> {
-    const sessionId = `txn_paddle_${params.campaignId}_${Date.now()}`;
-    const checkoutHost =
-      process.env.NODE_ENV === 'production'
-        ? 'https://checkout.paddle.com'
-        : 'https://sandbox-checkout.paddle.com';
+  get webhookSecret(): string {
+    return this.explicitSecret !== undefined ? this.explicitSecret : (config.PADDLE_WEBHOOK_SECRET || '');
+  }
 
-    const query = new URLSearchParams({
-      txn: sessionId,
-      campaignId: params.campaignId,
-      tier: params.tier,
-      amountCents: params.amountCents.toString(),
-      returnUrl: params.successUrl,
-      cancelUrl: params.cancelUrl,
-    });
-
-    if (params.founderEmail) query.set('email', params.founderEmail);
-    if (params.productName) query.set('productName', params.productName);
-
-    const checkoutUrl = `${checkoutHost}/checkout/build?${query.toString()}`;
-
-    logger.info(
-      { campaignId: params.campaignId, sessionId, tier: params.tier, amountCents: params.amountCents },
-      'Generated Paddle checkout session'
-    );
-
-    return { checkoutUrl, sessionId };
+  hasWebhookSecret(): boolean {
+    const secret = this.webhookSecret;
+    return Boolean(secret && secret.trim().length > 0);
   }
 
   async createRankingCheckoutSession(params: RankingCheckoutSessionParams): Promise<CheckoutSessionResult> {
@@ -155,7 +112,6 @@ export class PaddleProvider implements IPaymentProvider {
     const query = new URLSearchParams({
       txn: sessionId,
       productId: params.productId,
-      founderId: params.founderId || '',
       paymentType: 'RANKING',
       contributionType: params.contributionType || 'DAILY',
       amountCents: params.amountCents.toString(),
@@ -163,8 +119,7 @@ export class PaddleProvider implements IPaymentProvider {
       cancelUrl: params.cancelUrl,
     });
 
-    const email = params.founderEmail || params.payerEmail;
-    if (email) query.set('email', email);
+    if (params.payerEmail) query.set('email', params.payerEmail);
     if (params.productName) query.set('productName', `${params.productName} — LaunchProduct Rank`);
 
     const checkoutUrl = `${checkoutHost}/checkout/build?${query.toString()}`;
@@ -178,6 +133,9 @@ export class PaddleProvider implements IPaymentProvider {
   }
 
   verifyWebhookSignature(rawBody: string | Buffer, signatureHeader: string): boolean {
+    if (!this.hasWebhookSecret()) {
+      return false;
+    }
     if (!signatureHeader) return false;
 
     try {
@@ -226,26 +184,18 @@ export class PaddleProvider implements IPaymentProvider {
     const eventId = payload.event_id || payload.alert_id || `evt_${Date.now()}`;
     const data = payload.data || payload;
 
-    const campaignId =
-      data.custom_data?.campaignId ||
-      data.custom_data?.campaign_id ||
-      payload.passthrough ||
-      data.passthrough ||
-      undefined;
-
     const productId =
       data.custom_data?.productId ||
       data.custom_data?.product_id ||
       data.custom_data?.productId_ ||
       undefined;
 
-    const founderId =
-      data.custom_data?.founderId ||
-      data.custom_data?.founder_id ||
+    const payerEmail =
+      data.customer?.email ||
+      data.email ||
+      payload.email ||
+      (data.custom_data?.payerEmail as string) ||
       undefined;
-
-    const paymentType: 'RANKING' | 'SPONSORSHIP' =
-      data.custom_data?.paymentType === 'RANKING' || productId ? 'RANKING' : 'SPONSORSHIP';
 
     const paymentId = data.id || data.order_id || data.payment_id;
     const customerId = data.customer_id || data.user_id;
@@ -279,146 +229,9 @@ export class PaddleProvider implements IPaymentProvider {
       providerPaymentId: paymentId,
       providerOrderId: data.order_id || paymentId,
       providerCustomerId: customerId,
-      campaignId,
       productId,
-      founderId,
-      paymentType,
-      amountCents,
-      currency,
-      status,
-      rawPayload: payload,
-    };
-  }
-}
-
-/**
- * Lemon Squeezy Merchant of Record Implementation
- */
-export class LemonSqueezyProvider implements IPaymentProvider {
-  private webhookSecret: string;
-
-  constructor(secret?: string) {
-    this.webhookSecret =
-      secret ||
-      process.env.LEMONSQUEEZY_WEBHOOK_SECRET ||
-      'lemonsqueezy_webhook_secret_dev_key_fallback_12345';
-  }
-
-  async createCheckoutSession(params: CheckoutSessionParams): Promise<CheckoutSessionResult> {
-    const sessionId = `txn_ls_${params.campaignId}_${Date.now()}`;
-    const query = new URLSearchParams({
-      'checkout[custom][campaign_id]': params.campaignId,
-      'checkout[custom][tier]': params.tier,
-      'checkout[email]': params.founderEmail || '',
-      'checkout[product_name]': params.productName || 'LaunchProduct Sponsorship',
-      'return_url': params.successUrl,
-      'cancel_url': params.cancelUrl,
-    });
-
-    const checkoutUrl = `https://launchproduct.lemonsqueezy.com/buy/${sessionId}?${query.toString()}`;
-
-    logger.info(
-      { campaignId: params.campaignId, sessionId, tier: params.tier, amountCents: params.amountCents },
-      'Generated Lemon Squeezy checkout session'
-    );
-
-    return { checkoutUrl, sessionId };
-  }
-
-  async createRankingCheckoutSession(params: RankingCheckoutSessionParams): Promise<CheckoutSessionResult> {
-    const sessionId = `txn_ls_rank_${params.productId}_${Date.now()}`;
-    const query = new URLSearchParams({
-      'checkout[custom][product_id]': params.productId,
-      'checkout[custom][founder_id]': params.founderId || '',
-      'checkout[custom][payment_type]': 'RANKING',
-      'checkout[custom][contribution_type]': params.contributionType || 'DAILY',
-      'checkout[email]': params.founderEmail || params.payerEmail || '',
-      'checkout[product_name]': `${params.productName} — LaunchProduct Rank`,
-      'return_url': params.successUrl,
-      'cancel_url': params.cancelUrl,
-    });
-
-    const checkoutUrl = `https://launchproduct.lemonsqueezy.com/buy/${sessionId}?${query.toString()}`;
-
-    logger.info(
-      { productId: params.productId, sessionId, amountCents: params.amountCents },
-      'Generated Lemon Squeezy Pay-to-Rank checkout session'
-    );
-
-    return { checkoutUrl, sessionId };
-  }
-
-  verifyWebhookSignature(rawBody: string | Buffer, signatureHeader: string): boolean {
-    if (!signatureHeader) return false;
-
-    try {
-      const bodyStr = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody;
-      const computed = crypto
-        .createHmac('sha256', this.webhookSecret)
-        .update(bodyStr)
-        .digest('hex');
-
-      return safeCompare(computed, signatureHeader);
-    } catch (err: any) {
-      logger.warn({ err: err.message }, 'Lemon Squeezy signature verification failure');
-      return false;
-    }
-  }
-
-  parseWebhookEvent(rawBody: string | Buffer | Record<string, unknown>): ParsedWebhookEvent {
-    let payload: Record<string, any>;
-    if (typeof rawBody === 'string' || Buffer.isBuffer(rawBody)) {
-      payload = JSON.parse(rawBody.toString('utf8'));
-    } else {
-      payload = rawBody;
-    }
-
-    const eventName = payload.meta?.event_name || 'order_created';
-    const eventId = payload.meta?.webhook_id || `evt_ls_${Date.now()}`;
-    const data = payload.data || {};
-    const attributes = data.attributes || {};
-
-    const campaignId =
-      payload.meta?.custom_data?.campaign_id ||
-      payload.meta?.custom_data?.campaignId ||
-      undefined;
-
-    const productId =
-      payload.meta?.custom_data?.product_id ||
-      payload.meta?.custom_data?.productId ||
-      undefined;
-
-    const founderId =
-      payload.meta?.custom_data?.founder_id ||
-      payload.meta?.custom_data?.founderId ||
-      undefined;
-
-    const paymentType: 'RANKING' | 'SPONSORSHIP' =
-      payload.meta?.custom_data?.payment_type === 'RANKING' || productId ? 'RANKING' : 'SPONSORSHIP';
-
-    const paymentId = data.id || attributes.order_number?.toString();
-    const customerId = attributes.customer_id?.toString();
-    const amountCents = attributes.total || attributes.total_usd || 0;
-    const currency = attributes.currency || 'USD';
-
-    let status = PaymentStatus.PENDING;
-    if (['order_created', 'subscription_payment_success'].includes(eventName)) {
-      status = PaymentStatus.SUCCEEDED;
-    } else if (['order_refunded'].includes(eventName)) {
-      status = PaymentStatus.REFUNDED;
-    }
-
-    return {
-      eventType: eventName,
-      provider: 'lemonsqueezy',
-      providerEventId: eventId,
-      providerPaymentId: paymentId,
-      providerOrderId: attributes.order_number?.toString() || paymentId,
-      providerCustomerId: customerId,
-      campaignId,
-      productId,
-      founderId,
-      paymentType,
+      payerEmail,
+      paymentType: 'RANKING',
       amountCents,
       currency,
       status,
@@ -429,17 +242,22 @@ export class LemonSqueezyProvider implements IPaymentProvider {
 
 // Singletons
 const paddleProvider = new PaddleProvider();
-const lemonSqueezyProvider = new LemonSqueezyProvider();
 
 export function getPaymentProvider(provider: string = 'paddle'): IPaymentProvider {
   const normalized = provider.toLowerCase().trim();
   if (normalized === 'paddle') return paddleProvider;
-  if (normalized === 'lemonsqueezy' || normalized === 'lemon_squeezy') return lemonSqueezyProvider;
 
-  throw new ValidationError(`Unsupported payment provider '${provider}'. Supported: paddle, lemonsqueezy`, [
-    { field: 'provider', code: 'INVALID_ENUM', message: 'Provider must be paddle or lemonsqueezy' },
+  throw new ValidationError(`Unsupported payment provider '${provider}'. Supported: paddle`, [
+    { field: 'provider', code: 'INVALID_ENUM', message: 'Provider must be paddle' },
   ]);
 }
+
+const DISALLOWED_PRODUCT_STATUSES = [
+  ProductStatus.SUSPENDED,
+  ProductStatus.REJECTED,
+  ProductStatus.DELETED,
+  ProductStatus.ARCHIVED,
+];
 
 export class PaymentService {
   /**
@@ -448,8 +266,6 @@ export class PaymentService {
   async createRankingCheckout(params: {
     productId: string;
     amountCents: number;
-    founderId?: string;
-    founderEmail?: string;
     payerEmail?: string;
     contributionType?: 'INITIAL_ENTRY' | 'DAILY' | 'ALL_TIME_BOOST';
     provider?: string;
@@ -465,8 +281,6 @@ export class PaymentService {
   }> {
     const {
       productId,
-      founderId,
-      founderEmail,
       payerEmail,
       contributionType = 'DAILY',
       amountCents,
@@ -484,6 +298,20 @@ export class PaymentService {
     const product = await Product.findById(productId);
     if (!product) {
       throw new NotFoundError(`Product '${productId}' not found`);
+    }
+
+    // SUSPENDED, REJECTED, DELETED and ARCHIVED products must never receive ranking payments
+    if (DISALLOWED_PRODUCT_STATUSES.includes(product.status)) {
+      throw new ValidationError(
+        `Product '${product.slug}' is in status '${product.status}' and cannot receive ranking payments`,
+        [
+          {
+            field: 'productId',
+            code: 'INVALID_STATUS',
+            message: `Cannot checkout for product in status ${product.status}`,
+          },
+        ]
+      );
     }
 
     // Validate Pay-to-Rank threshold and increment rules
@@ -516,20 +344,12 @@ export class PaymentService {
       );
     }
 
-    let emailToUse = founderEmail || payerEmail;
-    if (!emailToUse && founderId && Types.ObjectId.isValid(founderId)) {
-      const founder = await User.findById(founderId).lean();
-      emailToUse = founder?.email;
-    }
-
     const providerInstance = getPaymentProvider(provider);
 
     const sessionResult = await providerInstance.createRankingCheckoutSession({
       productId: product._id.toString(),
       productName: product.name,
-      founderId,
-      founderEmail: emailToUse,
-      payerEmail: emailToUse,
+      payerEmail,
       contributionType,
       amountCents,
       successUrl,
@@ -550,14 +370,19 @@ export class PaymentService {
 
   /**
    * Authoritative Merchant of Record Inbound Webhook Processor
-   * Supports Pay-to-Rank transactions as well as legacy campaign sponsorships.
+   * Only processes Pay-to-Rank ranking confirmations, refunds, and disputes.
    */
   async handlePaymentWebhook(
     providerName: string,
     rawBody: Buffer | string,
     signatureHeader: string
-  ): Promise<{ success: boolean; message: string; campaignId?: string; productId?: string }> {
+  ): Promise<{ success: boolean; message: string; productId?: string }> {
     const provider = getPaymentProvider(providerName);
+
+    if (provider instanceof PaddleProvider && !provider.hasWebhookSecret()) {
+      logger.error('Paddle webhook secret is not configured on this server');
+      throw new AppError(503, 'WEBHOOK_NOT_CONFIGURED', 'Paddle webhook secret is not configured on this server');
+    }
 
     // 1. Verify signature
     const isValid = provider.verifyWebhookSignature(rawBody, signatureHeader);
@@ -603,7 +428,6 @@ export class PaymentService {
       return {
         success: true,
         message: 'Webhook event already processed (idempotent duplicate).',
-        campaignId: event.campaignId,
         productId: event.productId,
       };
     }
@@ -626,15 +450,8 @@ export class PaymentService {
         event.eventType
       );
 
-    const isRankingPayment =
-      event.paymentType === 'RANKING' ||
-      (event.productId && Types.ObjectId.isValid(event.productId)) ||
-      (!event.campaignId && Boolean(event.productId));
-
-    // ==========================================
-    // Flow A: Pay-to-Rank Confirmation
-    // ==========================================
-    if (isSuccess && isRankingPayment && event.productId && Types.ObjectId.isValid(event.productId)) {
+    // Pay-to-Rank Confirmation
+    if (isSuccess && event.productId && Types.ObjectId.isValid(event.productId)) {
       const product = await Product.findById(event.productId);
       if (!product) {
         logger.warn({ productId: event.productId }, 'Product not found for ranking payment activation');
@@ -644,9 +461,17 @@ export class PaymentService {
         throw new NotFoundError(`Product '${event.productId}' not found for ranking payment`);
       }
 
+      // SUSPENDED, REJECTED, DELETED and ARCHIVED products must never become LIVE through a payment
+      if (DISALLOWED_PRODUCT_STATUSES.includes(product.status)) {
+        logger.warn({ productId: product._id, status: product.status }, 'Webhook received payment for product in disallowed status');
+        await PaymentWebhookEvent.findByIdAndUpdate(webhookRecord._id, {
+          $set: { processingStatus: 'FAILED', status: 'FAILED', processedAt: new Date() },
+        });
+        throw new AppError(400, 'PRODUCT_STATUS_DISALLOWED', `Product is in status ${product.status} and cannot receive ranking payments`);
+      }
+
       const now = new Date();
       const targetDailyDate = now.toISOString().split('T')[0];
-      const founderId = product.founderId || (event.founderId && Types.ObjectId.isValid(event.founderId) ? new Types.ObjectId(event.founderId) : product.submittedById);
       const paymentAmountCents = event.amountCents || MIN_INITIAL_RANKING_PAYMENT_CENTS;
 
       const previousAllTime = product.paidRankingAmountCents || 0;
@@ -669,11 +494,15 @@ export class PaymentService {
         newAllTime = previousAllTime + paymentAmountCents;
         newToday = previousToday + paymentAmountCents;
       } else if (contributionType === 'DAILY') {
-        // Daily participation applies strictly to target UTC daily leaderboard, DOES NOT inflate All-Time
         newToday = previousToday + paymentAmountCents;
       } else if (contributionType === 'ALL_TIME_BOOST') {
         newAllTime = previousAllTime + paymentAmountCents;
       }
+
+      const payerEmail =
+        (event.rawPayload?.email as string) ||
+        (event.rawPayload?.data as any)?.customer?.email ||
+        event.payerEmail;
 
       // MongoDB Multi-Document ACID Transaction with standalone fallback
       let session: mongoose.ClientSession | null = null;
@@ -681,19 +510,18 @@ export class PaymentService {
         session = await mongoose.startSession();
         session.startTransaction();
 
-        // 1. Insert Payment Document
+        // 1. Insert Payment Document (account-free)
         const [paymentDoc] = await Payment.create(
           [
             {
               productId: product._id,
-              founderId: founderId || undefined,
-              payerEmail: (event.rawPayload?.email as string) || undefined,
+              payerEmail: payerEmail || undefined,
               contributionType,
               paymentType: 'RANKING',
               provider: event.provider,
-              providerCustomerId: event.providerCustomerId || null,
-              providerPaymentId: event.providerPaymentId || null,
-              providerOrderId: event.providerOrderId || null,
+              providerCustomerId: event.providerCustomerId || undefined,
+              providerPaymentId: event.providerPaymentId || undefined,
+              providerOrderId: event.providerOrderId || undefined,
               providerEventId: event.providerEventId,
               amountCents: paymentAmountCents,
               rankingContributionCents: paymentAmountCents,
@@ -706,14 +534,13 @@ export class PaymentService {
           { session }
         );
 
-        // 2. Insert Immutable RankingLedger Audit Entry
+        // 2. Insert Immutable RankingLedger Audit Entry (account-free)
         await RankingLedger.create(
           [
             {
               paymentId: paymentDoc._id,
               productId: product._id,
-              founderId: founderId || undefined,
-              payerEmail: (event.rawPayload?.email as string) || undefined,
+              payerEmail: payerEmail || undefined,
               contributionType,
               amountCents: paymentAmountCents,
               qualifyingAmountCents: paymentAmountCents,
@@ -729,17 +556,20 @@ export class PaymentService {
           { session }
         );
 
-        // 3. Atomically Update Product Paid Ranking Totals & Dates, and activate to LIVE
+        // 3. Atomically Update Product Paid Ranking Totals & Dates
+        // The payment webhook may ONLY move DRAFT -> LIVE.
         const productUpdates: any = {
           $set: {
             paidRankingAmountCents: newAllTime,
             todayPaidAmountCents: newToday,
             todayPaidDate: targetDailyDate,
             lastPaidAt: now,
-            status: ProductStatus.LIVE,
             updatedAt: now,
           },
         };
+        if (product.status === ProductStatus.DRAFT) {
+          productUpdates.$set.status = ProductStatus.LIVE;
+        }
         if (!product.firstPaidAt) {
           productUpdates.$set.firstPaidAt = now;
         }
@@ -759,12 +589,11 @@ export class PaymentService {
           { session }
         );
 
-        // 5. Record ActivityEvent
+        // 5. Record ActivityEvent (account-free)
         await ActivityEvent.create(
           [
             {
               productId: product._id,
-              userId: founderId || undefined,
               eventType: 'RANKING_PAYMENT_CONFIRMED',
               eventSource: EventSource.SPONSORED,
               metadata: {
@@ -788,24 +617,20 @@ export class PaymentService {
           try {
             await session.abortTransaction();
           } catch {
-            // ignore abort error
+            // ignore
           }
         }
-
-        // Standalone MongoDB Fallback (e.g. local dev without replica set)
         if (txnErr.message && txnErr.message.includes('replica set')) {
-          logger.warn({ productId: product._id }, 'Executing Pay-to-Rank sequentially in standalone mode');
-
+          // Standalone MongoDB fallback for test environments
           const paymentDoc = await Payment.create({
             productId: product._id,
-            founderId: founderId || undefined,
-            payerEmail: (event.rawPayload?.email as string) || undefined,
+            payerEmail: payerEmail || undefined,
             contributionType,
             paymentType: 'RANKING',
             provider: event.provider,
-            providerCustomerId: event.providerCustomerId || null,
-            providerPaymentId: event.providerPaymentId || null,
-            providerOrderId: event.providerOrderId || null,
+            providerCustomerId: event.providerCustomerId || undefined,
+            providerPaymentId: event.providerPaymentId || undefined,
+            providerOrderId: event.providerOrderId || undefined,
             providerEventId: event.providerEventId,
             amountCents: paymentAmountCents,
             rankingContributionCents: paymentAmountCents,
@@ -818,8 +643,7 @@ export class PaymentService {
           await RankingLedger.create({
             paymentId: paymentDoc._id,
             productId: product._id,
-            founderId: founderId || undefined,
-            payerEmail: (event.rawPayload?.email as string) || undefined,
+            payerEmail: payerEmail || undefined,
             contributionType,
             amountCents: paymentAmountCents,
             qualifyingAmountCents: paymentAmountCents,
@@ -832,40 +656,26 @@ export class PaymentService {
             appliedAt: now,
           });
 
-          const productUpdates: any = {
+          const fallbackUpdates: any = {
             $set: {
               paidRankingAmountCents: newAllTime,
               todayPaidAmountCents: newToday,
               todayPaidDate: targetDailyDate,
               lastPaidAt: now,
-              status: ProductStatus.LIVE,
               updatedAt: now,
             },
           };
+          if (product.status === ProductStatus.DRAFT) {
+            fallbackUpdates.$set.status = ProductStatus.LIVE;
+          }
           if (!product.firstPaidAt) {
-            productUpdates.$set.firstPaidAt = now;
+            fallbackUpdates.$set.firstPaidAt = now;
           }
 
-          await Product.findByIdAndUpdate(product._id, productUpdates);
+          await Product.findByIdAndUpdate(product._id, fallbackUpdates);
 
           await PaymentWebhookEvent.findByIdAndUpdate(webhookRecord._id, {
             $set: { processingStatus: 'PROCESSED', status: 'PROCESSED', processedAt: now },
-          });
-
-          await ActivityEvent.create({
-            productId: product._id,
-            userId: founderId || undefined,
-            eventType: 'RANKING_PAYMENT_CONFIRMED',
-            eventSource: EventSource.SPONSORED,
-            metadata: {
-              paymentId: paymentDoc._id.toString(),
-              amountCents: paymentAmountCents,
-              newAllTimeCents: newAllTime,
-              targetDailyDate,
-              contributionType,
-              provider: event.provider,
-              providerPaymentId: event.providerPaymentId,
-            },
           });
         } else {
           await PaymentWebhookEvent.findByIdAndUpdate(webhookRecord._id, {
@@ -877,23 +687,23 @@ export class PaymentService {
         if (session) await session.endSession();
       }
 
-      // Invalidate Redis Leaderboard caches immediately
       await invalidateLeaderboardCaches();
 
-      // Enqueue notification email to founder
-      try {
-        const founderUser = await User.findById(founderId).select('email').lean();
-        if (founderUser?.email) {
-          await emailQueue.add('send-ranking-confirmed', {
-            to: founderUser.email,
-            productId: product._id.toString(),
+      // Enqueue ranking payment confirmation email using payer email from Paddle payload
+      if (payerEmail) {
+        try {
+          await emailQueue.add('RANKING_PAYMENT_CONFIRMED', {
+            to: payerEmail,
             productName: product.name,
-            amountPaidFormatted: `$${(paymentAmountCents / 100).toFixed(2)}`,
-            newAllTimeFormatted: `$${(newAllTime / 100).toFixed(2)}`,
+            slug: product.slug,
+            amountCents: paymentAmountCents,
+            contributionType,
+            targetDailyDate,
           });
+          logger.info({ payerEmail, productId: product._id }, 'Enqueued ranking payment confirmation email');
+        } catch (mailErr: any) {
+          logger.warn({ err: mailErr.message }, 'Failed to enqueue ranking payment confirmed email');
         }
-      } catch (eErr: any) {
-        logger.warn({ err: eErr.message }, 'Failed to enqueue founder ranking payment confirmation email');
       }
 
       return {
@@ -903,137 +713,7 @@ export class PaymentService {
       };
     }
 
-    // ==========================================
-    // Flow B: Legacy Campaign Sponsorship Confirmation
-    // ==========================================
-    if (isSuccess && event.campaignId && Types.ObjectId.isValid(event.campaignId)) {
-      const campaign = await Campaign.findById(event.campaignId);
-      if (!campaign) {
-        logger.warn({ campaignId: event.campaignId }, 'Campaign not found for payment webhook activation');
-        await PaymentWebhookEvent.findByIdAndUpdate(webhookRecord._id, {
-          $set: { processingStatus: 'FAILED', status: 'FAILED', processedAt: new Date() },
-        });
-        throw new NotFoundError(`Campaign '${event.campaignId}' not found for activation`);
-      }
-
-      const now = new Date();
-      const startsAt = campaign.startsAt && campaign.startsAt > now ? campaign.startsAt : now;
-      const durationHours = SPONSORSHIP_DURATIONS_HOURS[campaign.tier] || 24;
-      const endsAt = new Date(startsAt.getTime() + durationHours * 3600 * 1000);
-
-      let session: mongoose.ClientSession | null = null;
-      try {
-        session = await mongoose.startSession();
-        session.startTransaction();
-
-        await Payment.create(
-          [
-            {
-              productId: campaign.productId,
-              campaignId: campaign._id,
-              founderId: campaign.founderId,
-              paymentType: 'SPONSORSHIP',
-              provider: event.provider,
-              providerCustomerId: event.providerCustomerId || null,
-              providerPaymentId: event.providerPaymentId || null,
-              providerOrderId: event.providerOrderId || null,
-              providerEventId: event.providerEventId,
-              amountCents: event.amountCents || campaign.amountCents,
-              rankingContributionCents: 0,
-              appliedToRanking: false,
-              currency: event.currency || 'USD',
-              status: PaymentStatus.SUCCEEDED,
-            },
-          ],
-          { session }
-        );
-
-        await Campaign.findByIdAndUpdate(
-          campaign._id,
-          {
-            $set: {
-              status: 'ACTIVE',
-              startsAt,
-              endsAt,
-              providerPaymentId: event.providerPaymentId || campaign.providerPaymentId,
-              updatedAt: now,
-            },
-          },
-          { session }
-        );
-
-        await PaymentWebhookEvent.findByIdAndUpdate(
-          webhookRecord._id,
-          {
-            $set: {
-              processingStatus: 'PROCESSED',
-              status: 'PROCESSED',
-              processedAt: now,
-            },
-          },
-          { session }
-        );
-
-        await session.commitTransaction();
-      } catch (txnErr: any) {
-        if (session) {
-          try {
-            await session.abortTransaction();
-          } catch {
-            // ignore
-          }
-        }
-        if (txnErr.message && txnErr.message.includes('replica set')) {
-          await Payment.create({
-            productId: campaign.productId,
-            campaignId: campaign._id,
-            founderId: campaign.founderId,
-            paymentType: 'SPONSORSHIP',
-            provider: event.provider,
-            providerCustomerId: event.providerCustomerId || null,
-            providerPaymentId: event.providerPaymentId || null,
-            providerOrderId: event.providerOrderId || null,
-            providerEventId: event.providerEventId,
-            amountCents: event.amountCents || campaign.amountCents,
-            rankingContributionCents: 0,
-            appliedToRanking: false,
-            currency: event.currency || 'USD',
-            status: PaymentStatus.SUCCEEDED,
-          });
-
-          await Campaign.findByIdAndUpdate(campaign._id, {
-            $set: {
-              status: 'ACTIVE',
-              startsAt,
-              endsAt,
-              providerPaymentId: event.providerPaymentId || campaign.providerPaymentId,
-              updatedAt: now,
-            },
-          });
-
-          await PaymentWebhookEvent.findByIdAndUpdate(webhookRecord._id, {
-            $set: { processingStatus: 'PROCESSED', status: 'PROCESSED', processedAt: now },
-          });
-        } else {
-          await PaymentWebhookEvent.findByIdAndUpdate(webhookRecord._id, {
-            $set: { processingStatus: 'FAILED', status: 'FAILED', processedAt: now },
-          });
-          throw txnErr;
-        }
-      } finally {
-        if (session) await session.endSession();
-      }
-
-      return {
-        success: true,
-        message: 'Campaign activated via MoR webhook.',
-        campaignId: campaign._id.toString(),
-      };
-    }
-
-    // ==========================================
-    // Flow C: Refunds, Disputes, and Reversals
-    // ==========================================
+    // Refunds, Disputes, and Reversals
     const isRefundOrDispute =
       event.status === PaymentStatus.REFUNDED ||
       event.status === PaymentStatus.DISPUTED ||
@@ -1042,14 +722,11 @@ export class PaymentService {
       );
 
     if (isRefundOrDispute) {
-      // Find the corresponding payment record
       const paymentFilter: any = {};
       if (event.providerPaymentId) {
         paymentFilter.providerPaymentId = event.providerPaymentId;
       } else if (event.productId && Types.ObjectId.isValid(event.productId)) {
         paymentFilter.productId = new Types.ObjectId(event.productId);
-      } else if (event.campaignId && Types.ObjectId.isValid(event.campaignId)) {
-        paymentFilter.campaignId = new Types.ObjectId(event.campaignId);
       }
 
       const existingPayment = await Payment.findOne(paymentFilter);
@@ -1058,8 +735,8 @@ export class PaymentService {
           $set: { status: event.status || PaymentStatus.REFUNDED, updatedAt: new Date() },
         });
 
-        // If Pay-to-Rank: Reverse ledger entry and decrement product ranking amount
-        if (existingPayment.paymentType === 'RANKING' || existingPayment.rankingContributionCents > 0) {
+        // Reverse ledger entry and decrement product ranking amount
+        if (existingPayment.rankingContributionCents > 0) {
           await RankingLedger.findOneAndUpdate(
             { paymentId: existingPayment._id },
             {
@@ -1090,11 +767,6 @@ export class PaymentService {
             { paymentId: existingPayment._id, eventType: event.eventType },
             'Reversed ranking contribution due to refund/dispute'
           );
-        } else if (existingPayment.campaignId) {
-          // Pause campaign
-          await Campaign.findByIdAndUpdate(existingPayment.campaignId, {
-            $set: { status: 'PAUSED', updatedAt: new Date() },
-          });
         }
       }
     }
@@ -1106,7 +778,6 @@ export class PaymentService {
     return {
       success: true,
       message: 'Webhook processed.',
-      campaignId: event.campaignId,
       productId: event.productId,
     };
   }

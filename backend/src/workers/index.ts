@@ -3,27 +3,23 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { emailQueue } from '../shared/email-queue';
-import { campaignQueue } from '../shared/campaign-queue';
 import { clickEventsQueue, sponsoredClickEventsQueue } from '../shared/click-queue';
 import { rankingQueue } from '../shared/ranking-queue';
 import { scraperQueue } from '../shared/scraper-queue';
 import { startEmailWorker, stopEmailWorker } from './email.worker';
-import { startCampaignWorker, stopCampaignWorker } from './campaign.worker';
 import { startEventsWorker, stopEventsWorker } from './events.worker';
 import { startRankingWorker, stopRankingWorker } from './ranking.worker';
 import { logger } from '../shared/logger';
 
 export * from './email.worker';
-export * from './campaign.worker';
 export * from './events.worker';
 export * from './ranking.worker';
 
 /**
- * Registry of all LaunchProduct BullMQ queues
+ * Registry of active LaunchProduct BullMQ queues
  */
 export const registeredQueues = {
   email: emailQueue,
-  campaign: campaignQueue,
   clickEvents: clickEventsQueue,
   sponsoredClickEvents: sponsoredClickEventsQueue,
   ranking: rankingQueue,
@@ -31,7 +27,7 @@ export const registeredQueues = {
 };
 
 /**
- * Creates and configures the BullMQ UI board router mounted at /admin/queues
+ * Creates and configures the BullMQ UI board router mounted at /admin/queues (non-production only)
  */
 export function setupBullBoard(basePath: string = '/admin/queues'): Router {
   const serverAdapter = new ExpressAdapter();
@@ -40,7 +36,6 @@ export function setupBullBoard(basePath: string = '/admin/queues'): Router {
   createBullBoard({
     queues: [
       new BullMQAdapter(emailQueue),
-      new BullMQAdapter(campaignQueue),
       new BullMQAdapter(clickEventsQueue),
       new BullMQAdapter(sponsoredClickEventsQueue),
       new BullMQAdapter(rankingQueue),
@@ -95,15 +90,14 @@ export async function getQueuesOverview(): Promise<
  * Bootstraps all BullMQ background workers on server startup
  */
 export async function startAllWorkers(): Promise<void> {
-  logger.info('Initializing all LaunchProduct BullMQ background workers...');
+  logger.info('Initializing LaunchProduct BullMQ background workers...');
   try {
     await Promise.allSettled([
       startEmailWorker(),
-      startCampaignWorker(),
       startEventsWorker(),
       startRankingWorker(),
     ]);
-    logger.info('All LaunchProduct BullMQ workers successfully initialized');
+    logger.info('LaunchProduct BullMQ workers successfully initialized');
   } catch (err: any) {
     logger.error({ err: err.message }, 'Error during background workers initialization');
   }
@@ -113,15 +107,14 @@ export async function startAllWorkers(): Promise<void> {
  * Gracefully terminates all BullMQ background workers on server shutdown
  */
 export async function stopAllWorkers(): Promise<void> {
-  logger.info('Stopping all LaunchProduct BullMQ background workers...');
+  logger.info('Stopping LaunchProduct BullMQ background workers...');
   try {
     await Promise.allSettled([
       stopEmailWorker(),
-      stopCampaignWorker(),
       stopEventsWorker(),
       stopRankingWorker(),
     ]);
-    logger.info('All LaunchProduct BullMQ workers stopped gracefully');
+    logger.info('LaunchProduct BullMQ workers stopped gracefully');
   } catch (err: any) {
     logger.error({ err: err.message }, 'Error shutting down background workers');
   }

@@ -1,16 +1,14 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 import { PaymentStatus } from '../shared/constants';
 
-export type PaymentProvider = 'paddle' | 'lemonsqueezy';
+export type PaymentProvider = 'paddle';
 
 export interface IPayment {
   _id: Types.ObjectId;
   productId: Types.ObjectId;
-  campaignId?: Types.ObjectId | null;
-  founderId?: Types.ObjectId;
   payerEmail?: string;
   contributionType?: 'INITIAL_ENTRY' | 'DAILY' | 'ALL_TIME_BOOST';
-  paymentType: 'RANKING' | 'SPONSORSHIP';
+  paymentType: 'RANKING';
   provider: PaymentProvider;
   providerCustomerId?: string;
   providerPaymentId?: string;
@@ -35,22 +33,10 @@ const PaymentSchema = new Schema<IPayment>(
       ref: 'Product',
       required: [true, 'Product reference is required'],
     },
-    campaignId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Campaign',
-      default: null,
-    },
-    founderId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-      required: false,
-    },
     payerEmail: {
       type: String,
       trim: true,
       lowercase: true,
-      default: null,
     },
     contributionType: {
       type: String,
@@ -65,28 +51,24 @@ const PaymentSchema = new Schema<IPayment>(
     },
     provider: {
       type: String,
-      enum: ['paddle', 'lemonsqueezy'],
+      enum: ['paddle'],
       required: [true, 'Payment provider is required'],
     },
     providerCustomerId: {
       type: String,
       trim: true,
-      default: null,
     },
     providerPaymentId: {
       type: String,
       trim: true,
-      default: null,
     },
     providerOrderId: {
       type: String,
       trim: true,
-      default: null,
     },
     providerEventId: {
       type: String,
       trim: true,
-      default: null,
     },
     amountCents: {
       type: Number,
@@ -106,7 +88,6 @@ const PaymentSchema = new Schema<IPayment>(
     },
     targetDailyDate: {
       type: String,
-      default: null,
       trim: true,
     },
     currency: {
@@ -135,20 +116,26 @@ const PaymentSchema = new Schema<IPayment>(
 );
 
 // Indexes
-// 1. Provider payment reference lookup (unique & sparse)
-PaymentSchema.index({ providerPaymentId: 1 }, { unique: true, sparse: true });
+// 1. Provider payment reference lookup (unique partial index for string type)
+PaymentSchema.index(
+  { providerPaymentId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { providerPaymentId: { $type: 'string' } },
+  }
+);
 
-// 2. Webhook idempotency payment lookup (unique & sparse)
-PaymentSchema.index({ providerEventId: 1 }, { unique: true, sparse: true });
+// 2. Webhook idempotency payment lookup (unique partial index for string type)
+PaymentSchema.index(
+  { providerEventId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { providerEventId: { $type: 'string' } },
+  }
+);
 
-// 3. Campaign payments lookup (sparse since ranking payments do not have campaignId)
-PaymentSchema.index({ campaignId: 1 }, { sparse: true });
-
-// 4. Product payments lookup
+// 3. Product payments lookup
 PaymentSchema.index({ productId: 1, createdAt: -1 });
-
-// 5. Founder payment history lookup
-PaymentSchema.index({ founderId: 1, createdAt: -1 });
 
 export const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);
 export default Payment;

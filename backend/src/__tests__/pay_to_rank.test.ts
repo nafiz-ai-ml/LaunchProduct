@@ -4,8 +4,6 @@ import { Product } from '../models/Product.model';
 import { Category } from '../models/Category.model';
 import { RankingLedger } from '../models/RankingLedger.model';
 import { DailyLeaderboardSnapshot } from '../models/DailyLeaderboardSnapshot.model';
-import { Vote } from '../models/Vote.model';
-import { Review } from '../models/Review.model';
 import { ActivityEvent } from '../models/ActivityEvent.model';
 import { SystemSettings } from '../models/SystemSettings.model';
 import { ProductStatus } from '../shared/constants';
@@ -14,8 +12,6 @@ jest.mock('../models/Product.model');
 jest.mock('../models/Category.model');
 jest.mock('../models/RankingLedger.model');
 jest.mock('../models/DailyLeaderboardSnapshot.model');
-jest.mock('../models/Vote.model');
-jest.mock('../models/Review.model');
 jest.mock('../models/ActivityEvent.model');
 jest.mock('../models/SystemSettings.model');
 jest.mock('../shared/redis', () => ({
@@ -183,13 +179,7 @@ describe('Pay-to-Rank Transformation Unit Tests', () => {
       };
       (Product.find as jest.Mock).mockReturnValue(mockQueryChain);
 
-      // Product B has 500 votes, Product A has 0 votes
-      (Vote.aggregate as jest.Mock).mockResolvedValue([
-        { _id: prodBId, count: 500 },
-        { _id: prodAId, count: 0 },
-      ]);
       (ActivityEvent.aggregate as jest.Mock).mockResolvedValue([]);
-      (Review.aggregate as jest.Mock).mockResolvedValue([]);
 
       const result = await rankingService.getAllTimePayToRank(1, 10);
 
@@ -205,7 +195,7 @@ describe('Pay-to-Rank Transformation Unit Tests', () => {
       expect(result.items[1].productId).toBe(prodBId.toString());
       expect(result.items[1].rank).toBe(2);
       expect(result.items[1].amountCents).toBe(1000);
-      expect(result.items[1].voteCount).toBe(500);
+      expect(result.items[1].voteCount).toBe(0);
     });
   });
 

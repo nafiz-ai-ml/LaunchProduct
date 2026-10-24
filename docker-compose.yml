@@ -41,11 +41,9 @@ services:
       PORT: 4000
       MONGODB_URI: mongodb://mongodb:27017/launchproduct
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-key-minimum-32-chars-ok}
-      SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET:-dev-session-secret-key-32-chars-ok}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@launchproduct.io}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      PADDLE_WEBHOOK_SECRET: ${PADDLE_WEBHOOK_SECRET:-}
+      PADDLE_WEBHOOK_SECRET: ${PADDLE_WEBHOOK_SECRET:?PADDLE_WEBHOOK_SECRET is required}
       NEXT_PUBLIC_API_URL: http://localhost:4000
     depends_on:
       - mongodb

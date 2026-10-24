@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
+import { sanitizeImageUrl } from '@/lib/safe-url';
 import { Product } from '@/types';
 import {
   Search,
@@ -375,7 +376,7 @@ export function CommandPalette() {
                           <div className="flex items-center gap-3 min-w-0">
                             {prod.logoUrl ? (
                               <img
-                                src={prod.logoUrl}
+                                src={sanitizeImageUrl(prod.logoUrl)}
                                 alt={prod.name}
                                 className="w-7 h-7 rounded-lg object-cover flex-shrink-0 border border-border/40"
                               />

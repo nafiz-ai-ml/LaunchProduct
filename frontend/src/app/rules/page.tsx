@@ -175,7 +175,7 @@ export default function RulesPage() {
             <span>Commercial Transparency &amp; No Guarantee Disclaimer</span>
           </div>
           <p>
-            LaunchProduct rankings are commercially determined. Higher ranking placement enhances visibility across our discovery boards, but does not guarantee traffic, clicks, signups, customers, sales, or revenue. All ranking payments are final once published.
+            LaunchProduct rankings are commercially determined. Higher ranking placement enhances visibility across our discovery boards, but does not guarantee traffic, clicks, conversions, customers, sales, or revenue. All ranking payments are final once published.
           </p>
         </section>
       </div>

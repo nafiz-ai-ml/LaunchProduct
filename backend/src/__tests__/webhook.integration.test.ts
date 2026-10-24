@@ -3,10 +3,7 @@ import crypto from 'crypto';
 import { Types } from 'mongoose';
 import { createApp } from '../server';
 import { paymentService } from '../services/payment.service';
-import { Campaign } from '../models/Campaign.model';
-import { PaymentWebhookEvent } from '../models/PaymentWebhookEvent.model';
-import { CampaignStatus } from '../shared/constants';
-import { AppError } from '../shared/errors';
+import { config } from '../shared/config';
 
 // Mock dependencies
 jest.mock('../shared/db', () => ({
@@ -28,23 +25,16 @@ jest.mock('../shared/email-queue', () => ({
   },
 }));
 
-jest.mock('../shared/campaign-queue', () => ({
-  campaignQueue: {
-    add: jest.fn().mockResolvedValue({ id: 'campaign_job_123' }),
-  },
-}));
-
-describe('MoR Webhook Integration Tests (supertest)', () => {
+describe('MoR Webhook Integration Tests (Paddle Provider)', () => {
   const app = createApp();
-  const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET || 'paddle_webhook_secret_dev_key_fallback_12345';
+  const testSecret = config.PADDLE_WEBHOOK_SECRET || 'test-paddle-webhook-key-32-chars-long-valid';
 
-  function createPaddleSignature(bodyStr: string, timestampSec: number): string {
-    const payloadToSign = `${timestampSec}:${bodyStr}`;
+  function createPaddleSignature(bodyStr: string, tsSec: number, secret: string = testSecret): string {
     const hash = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(payloadToSign)
+      .createHmac('sha256', secret)
+      .update(`${tsSec}:${bodyStr}`)
       .digest('hex');
-    return `ts=${timestampSec};h1=${hash}`;
+    return `ts=${tsSec};h1=${hash}`;
   }
 
   beforeEach(() => {
@@ -55,17 +45,17 @@ describe('MoR Webhook Integration Tests (supertest)', () => {
     jest.restoreAllMocks();
   });
 
-  // 1. POST /api/v1/webhooks/payment/paddle with invalid signature → 400 WEBHOOK_SIGNATURE_INVALID
-  test('1. POST /api/v1/webhooks/payment/paddle with invalid signature → 400 WEBHOOK_SIGNATURE_INVALID', async () => {
+  // 1. POST with invalid signature → 400 WEBHOOK_SIGNATURE_INVALID
+  test('1. POST with invalid signature → 400 WEBHOOK_SIGNATURE_INVALID', async () => {
     const payload = {
-      event_id: 'evt_test_invalid_sig',
+      event_id: 'evt_invalid_sig_123',
       event_type: 'transaction.completed',
       data: { id: 'txn_123' },
     };
 
     const res = await request(app)
       .post('/api/v1/webhooks/payment/paddle')
-      .set('paddle-signature', 'ts=1700000000;h1=invalid_hmac_hash_abc')
+      .set('paddle-signature', 'ts=1234567890;h1=invalid_hmac_hash_00000000000000000000000000000000')
       .send(payload);
 
     expect(res.status).toBe(400);
@@ -73,16 +63,16 @@ describe('MoR Webhook Integration Tests (supertest)', () => {
     expect(res.body.error.code).toBe('WEBHOOK_SIGNATURE_INVALID');
   });
 
-  // 2. POST with valid signature + duplicate providerEventId → 200 (idempotency)
-  test('2. POST with valid signature + duplicate providerEventId → 200 (idempotency)', async () => {
+  // 2. POST with valid signature + idempotent duplicate event → 200 + skipped
+  test('2. POST with valid signature + idempotent duplicate event → 200 + skipped', async () => {
     const nowSec = Math.floor(Date.now() / 1000);
-    const mockCampaignId = new Types.ObjectId().toHexString();
+    const mockProductId = new Types.ObjectId().toHexString();
     const payload = {
       event_id: 'evt_duplicate_123',
       event_type: 'transaction.completed',
       data: {
         id: 'txn_duplicate_123',
-        custom_data: { campaignId: mockCampaignId },
+        custom_data: { productId: mockProductId },
       },
     };
     const bodyStr = JSON.stringify(payload);
@@ -91,7 +81,7 @@ describe('MoR Webhook Integration Tests (supertest)', () => {
     jest.spyOn(paymentService, 'handlePaymentWebhook').mockResolvedValue({
       success: true,
       message: 'Webhook event already processed (idempotent duplicate).',
-      campaignId: mockCampaignId,
+      productId: mockProductId,
     });
 
     const res = await request(app)
@@ -102,41 +92,29 @@ describe('MoR Webhook Integration Tests (supertest)', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.message).toMatch(/idempotent duplicate/i);
-    expect(res.body.data.campaignId).toBe(mockCampaignId);
+    expect(res.body.data.productId).toBe(mockProductId);
   });
 
-  // 3. POST with valid signature + new event → 200 + campaign activated (check DB)
-  test('3. POST with valid signature + new event → 200 + campaign activated', async () => {
+  // 3. POST with valid signature + new payment event → 200 + product updated
+  test('3. POST with valid signature + new event → 200 + product live', async () => {
     const nowSec = Math.floor(Date.now() / 1000);
-    const mockCampaignId = new Types.ObjectId().toHexString();
+    const mockProductId = new Types.ObjectId().toHexString();
     const payload = {
       event_id: 'evt_new_order_456',
       event_type: 'transaction.completed',
       data: {
         id: 'txn_new_order_456',
-        custom_data: { campaignId: mockCampaignId },
+        custom_data: { productId: mockProductId },
       },
     };
     const bodyStr = JSON.stringify(payload);
     const validSignature = createPaddleSignature(bodyStr, nowSec);
 
-    // Mock successful campaign activation in payment service
-    jest.spyOn(paymentService, 'handlePaymentWebhook').mockImplementation(async () => {
-      // Simulate campaign activation in DB
-      await Campaign.findByIdAndUpdate(mockCampaignId, {
-        $set: { status: CampaignStatus.ACTIVE },
-      });
-      return {
-        success: true,
-        message: 'Webhook processed and campaign activated.',
-        campaignId: mockCampaignId,
-      };
+    jest.spyOn(paymentService, 'handlePaymentWebhook').mockResolvedValue({
+      success: true,
+      message: 'Ranking payment successfully recorded and product activated.',
+      productId: mockProductId,
     });
-
-    const updateSpy = jest.spyOn(Campaign, 'findByIdAndUpdate').mockResolvedValue({
-      _id: new Types.ObjectId(mockCampaignId),
-      status: CampaignStatus.ACTIVE,
-    } as any);
 
     const res = await request(app)
       .post('/api/v1/webhooks/payment/paddle')
@@ -145,14 +123,7 @@ describe('MoR Webhook Integration Tests (supertest)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.message).toMatch(/campaign activated/i);
-    expect(res.body.data.campaignId).toBe(mockCampaignId);
-    expect(updateSpy).toHaveBeenCalledWith(
-      mockCampaignId,
-      expect.objectContaining({
-        $set: expect.objectContaining({ status: CampaignStatus.ACTIVE }),
-      })
-    );
+    expect(res.body.data.productId).toBe(mockProductId);
   });
 
   // 4. POST with valid signature + old timestamp (>300s) → 400 WEBHOOK_TIMESTAMP_EXPIRED

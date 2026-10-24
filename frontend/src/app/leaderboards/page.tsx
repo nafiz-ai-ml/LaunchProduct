@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
-import { UpvoteButton } from '@/components/product/UpvoteButton';
-import { AuthModal } from '@/components/auth/AuthModal';
+import { sanitizeImageUrl } from '@/lib/safe-url';
 import { OutbidModal } from '@/components/leaderboard/OutbidModal';
 import {
   Trophy,
@@ -309,7 +308,7 @@ export default function LeaderboardPage() {
   const remainingItems = items.filter((i) => i.rank > 3);
 
   const getProductLogo = (product: LeaderboardItemData['product']) =>
-    product.logoUrl || product.media?.logoUrl || '/brand/icon.svg';
+    sanitizeImageUrl(product.logoUrl || product.media?.logoUrl, '/brand/icon.svg');
 
   const getCategoryName = (product: LeaderboardItemData['product']) => {
     if (typeof product.category === 'object' && product.category !== null) {
@@ -704,14 +703,7 @@ export default function LeaderboardPage() {
         isOpen={outbidModalOpen}
         onClose={() => setOutbidModalOpen(false)}
         targetProduct={outbidTarget}
-        onAuthRequired={() => {
-          setOutbidModalOpen(false);
-          setAuthModalOpen(true);
-        }}
       />
-
-      {/* Auth Modal */}
-      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 }

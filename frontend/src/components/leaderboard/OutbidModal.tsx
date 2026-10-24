@@ -31,7 +31,6 @@ export interface OutbidModalProps {
     amountCents?: number;
     logoUrl?: string;
   } | null;
-  onAuthRequired?: () => void;
 }
 
 export function OutbidModal({
@@ -42,7 +41,6 @@ export function OutbidModal({
   currentRank,
   currentAmountCents,
   targetProduct,
-  onAuthRequired,
 }: OutbidModalProps) {
   const router = useRouter();
 

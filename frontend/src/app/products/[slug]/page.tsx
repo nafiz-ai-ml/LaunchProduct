@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ProductDetailClient } from '@/components/product/ProductDetailClient';
+import { safeJsonLd } from '@/lib/safe-json-ld';
 
 interface Props {
   params: {
@@ -9,6 +10,72 @@ interface Props {
 }
 
 const FALLBACK_PRODUCTS_MAP: Record<string, any> = {
+  'see-io': {
+    id: 'prod-see-io',
+    _id: 'prod-see-io',
+    name: 'see.io',
+    slug: 'see-io',
+    tagline: 'see your idea live',
+    description: 'Just describe your idea. AI turns it into a fully built, live website in minutes. Get your own domain whenever you want one. No coding required.',
+    canonicalDomain: 'see.io',
+    websiteUrl: 'https://see.io',
+    logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=128&auto=format&fit=crop&q=80',
+    category: { name: 'AI Agents & Infrastructure', slug: 'ai-agents' },
+    paidRankingAmountCents: 1700100,
+    stats: {
+      categoryRank: 1,
+      categoryTotal: 166,
+      overallRank: 1,
+      overallTotal: 3147,
+      clicksCount: 68064,
+      raisedCount: 4,
+      hasRankedToday: false,
+      todayRank: null,
+      outbidCostToBeatCategoryTop: 17006,
+    },
+    relatedProducts: [
+      {
+        id: 'prod-2',
+        name: 'JONI',
+        tagline: 'Your Personal AI Computer',
+        slug: 'joni',
+        paidRankingAmountCents: 1402800,
+        formattedAmount: '$14,028',
+        logoUrl: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=128&auto=format&fit=crop&q=80',
+        categoryRank: 2,
+      },
+      {
+        id: 'prod-3',
+        name: 'Pecan AI',
+        tagline: 'Predictive AI Agent for Business Teams',
+        slug: 'pecan-ai',
+        paidRankingAmountCents: 375000,
+        formattedAmount: '$3,750',
+        logoUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=128&auto=format&fit=crop&q=80',
+        categoryRank: 3,
+      },
+      {
+        id: 'prod-4',
+        name: 'Unify',
+        tagline: 'AI teammates for everyone else',
+        slug: 'unify',
+        paidRankingAmountCents: 312500,
+        formattedAmount: '$3,125',
+        logoUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=128&auto=format&fit=crop&q=80',
+        categoryRank: 4,
+      },
+      {
+        id: 'prod-5',
+        name: 'FangCode',
+        tagline: 'Cheap Coding Agent for Everyone',
+        slug: 'fangcode',
+        paidRankingAmountCents: 200100,
+        formattedAmount: '$2,001',
+        logoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80',
+        categoryRank: 5,
+      },
+    ],
+  },
   'vectorpulse-cloud': {
     id: 'prod-sponsor-1',
     _id: 'prod-sponsor-1',
@@ -17,109 +84,22 @@ const FALLBACK_PRODUCTS_MAP: Record<string, any> = {
     tagline: 'Serverless vector database engine with automated sub-millisecond similarity indexing',
     description: 'Ultra-low latency vector embeddings storage built specifically for high-throughput LLM reasoning pipelines and autonomous agents. VectorPulse delivers sub-millisecond approximate nearest neighbor searches with zero server configuration.',
     category: { name: 'Developer Tools', slug: 'developer-tools' },
-    pricing: { model: 'Freemium', startingPrice: 0 },
-    upvotesCount: 412,
-    reviewsCount: 64,
-    isVerified: true,
     canonicalDomain: 'vectorpulse.cloud',
     websiteUrl: 'https://vectorpulse.cloud',
     logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=128&auto=format&fit=crop&q=80',
-    tags: ['AI Engine', 'Database', 'TypeScript', 'Vector Search', 'Rust'],
-    launchDate: new Date().toISOString(),
-    media: {
-      screenshotUrls: [
-        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1200&auto=format&fit=crop&q=80',
-      ],
+    paidRankingAmountCents: 1200000,
+    stats: {
+      categoryRank: 1,
+      categoryTotal: 98,
+      overallRank: 6,
+      overallTotal: 3147,
+      clicksCount: 19400,
+      raisedCount: 3,
+      hasRankedToday: false,
+      todayRank: null,
+      outbidCostToBeatCategoryTop: 12005,
     },
-    founder: {
-      name: 'Alex Rivera',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80',
-      bio: 'Systems engineer & database architect. Previously staff infrastructure engineer at CloudScale. Building high-throughput search primitives.',
-      twitterHandle: 'alex_vectorpulse',
-    },
-  },
-  'devsync-ai': {
-    id: 'prod-1',
-    _id: 'prod-1',
-    name: 'DevSync AI',
-    slug: 'devsync-ai',
-    tagline: 'Autonomous code review agent that spots performance regressions before merging',
-    description: 'DevSync connects directly to your Git repositories, analyzing PR AST diffs and predicting bundle-size regressions, SQL N+1 bugs, and memory leaks before they ever hit production staging environments.',
-    category: { name: 'Developer Tools', slug: 'developer-tools' },
-    pricing: { model: 'Freemium', startingPrice: 0 },
-    upvotesCount: 388,
-    reviewsCount: 52,
-    isVerified: true,
-    canonicalDomain: 'devsync.ai',
-    websiteUrl: 'https://devsync.ai',
-    logoUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=128&auto=format&fit=crop&q=80',
-    tags: ['DevTools', 'AI Agents', 'GitHub', 'TypeScript', 'Code Review'],
-    launchDate: new Date().toISOString(),
-    media: {
-      screenshotUrls: [
-        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&auto=format&fit=crop&q=80',
-      ],
-    },
-    founder: {
-      name: 'Marcus Chen',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=128&auto=format&fit=crop&q=80',
-      bio: 'Compiler enthusiast and static analysis nerd. Passionate about automated code quality and developer productivity.',
-      twitterHandle: 'marcus_devsync',
-    },
-  },
-  'promptcanvas': {
-    id: 'prod-2',
-    _id: 'prod-2',
-    name: 'PromptCanvas',
-    slug: 'promptcanvas',
-    tagline: 'Visual node-based IDE for building, testing, and versioning production LLM chains',
-    description: 'The standard workspace for AI engineers: drag-and-drop prompt chaining, real-time token economics inspection, and automated unit testing suites.',
-    category: { name: 'AI Tools', slug: 'ai-tools' },
-    pricing: { model: 'Freemium', startingPrice: 0 },
-    upvotesCount: 295,
-    reviewsCount: 39,
-    isVerified: true,
-    canonicalDomain: 'promptcanvas.io',
-    websiteUrl: 'https://promptcanvas.io',
-    logoUrl: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=128&auto=format&fit=crop&q=80',
-    tags: ['Prompt Engineering', 'LLM', 'Productivity', 'React', 'OpenAI'],
-    launchDate: new Date().toISOString(),
-    media: {
-      screenshotUrls: [
-        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&auto=format&fit=crop&q=80',
-      ],
-    },
-    founder: {
-      name: 'Elena Rostova',
-      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=128&auto=format&fit=crop&q=80',
-      bio: 'AI researcher and frontend architect. Building visual cognitive workspaces.',
-      twitterHandle: 'elena_canvas',
-    },
-  },
-  'shipfast-ui': {
-    id: 'prod-3',
-    _id: 'prod-3',
-    name: 'ShipFast UI',
-    slug: 'shipfast-ui',
-    tagline: 'Accessible React & Tailwind component library for hyper-growth SaaS platforms',
-    description: 'Over 120+ meticulously crafted, conversion-optimized SaaS components with dark mode, full keyboard navigation, and seamless Figma synchronization.',
-    category: { name: 'Design Tools', slug: 'design-tools' },
-    pricing: { model: 'Paid', startingPrice: 49 },
-    upvotesCount: 247,
-    reviewsCount: 31,
-    isVerified: true,
-    canonicalDomain: 'shipfastui.com',
-    websiteUrl: 'https://shipfastui.com',
-    logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=128&auto=format&fit=crop&q=80',
-    tags: ['Tailwind CSS', 'React 18', 'Design System', 'UI Library'],
-    launchDate: new Date().toISOString(),
-    media: {
-      screenshotUrls: [
-        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&auto=format&fit=crop&q=80',
-      ],
-    },
+    relatedProducts: [],
   },
 };
 
@@ -128,7 +108,7 @@ const getApiBaseUrl = () => {
   return envUrl.replace('//localhost:', '//127.0.0.1:').replace(/\/$/, '');
 };
 
-async function getProduct(slug: string) {
+async function getProductData(slug: string) {
   try {
     const rawUrl = getApiBaseUrl();
     const endpoint = `${rawUrl}/api/v1/products/${encodeURIComponent(slug)}`;
@@ -139,16 +119,25 @@ async function getProduct(slug: string) {
     if (res.ok) {
       const json = await res.json();
       if (json?.data?.product) {
-        return json.data.product;
+        return {
+          product: json.data.product,
+          stats: json.data.stats || null,
+          relatedProducts: json.data.relatedProducts || [],
+        };
       }
     }
-  } catch (err: any) {
+  } catch {
     // If backend fails or not reachable, fallback to seed map
   }
 
   // Fallback to seeded demo products if found
-  if (FALLBACK_PRODUCTS_MAP[slug.toLowerCase()]) {
-    return FALLBACK_PRODUCTS_MAP[slug.toLowerCase()];
+  const fallback = FALLBACK_PRODUCTS_MAP[slug.toLowerCase()];
+  if (fallback) {
+    return {
+      product: fallback,
+      stats: fallback.stats,
+      relatedProducts: fallback.relatedProducts || [],
+    };
   }
 
   return null;
@@ -156,22 +145,23 @@ async function getProduct(slug: string) {
 
 // 1. Dynamic Server Component Metadata (WCAG & SEO Best Practices)
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const product = await getProduct(params.slug);
+  const data = await getProductData(params.slug);
 
-  if (!product) {
+  if (!data?.product) {
     return {
       title: 'Product Not Found | LaunchProduct',
       description: 'The requested product launch could not be found.',
     };
   }
 
+  const { product } = data;
   const title = `${product.name} — ${product.tagline} | LaunchProduct`;
   const description =
     product.description ||
-    `${product.name} is launched on LaunchProduct. Discover features, verified community feedback, and tech stack details.`;
+    `${product.name} is listed on LaunchProduct. Discover real-time pay-to-rank statistics and transparent community metrics.`;
 
   const canonicalUrl = `https://launchproduct.com/products/${product.slug || product._id || product.id}`;
-  const ogImageUrl = product.logoUrl || `${getApiBaseUrl()}/api/og/${product.slug || product._id}`;
+  const ogImageUrl = product.logoUrl || `https://www.google.com/s2/favicons?domain=${product.canonicalDomain}&sz=128`;
 
   return {
     title,
@@ -204,11 +194,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 // Main Page Server Component
 export default async function ProductPage({ params }: Props) {
-  const product = await getProduct(params.slug);
+  const data = await getProductData(params.slug);
 
-  if (!product) {
+  if (!data?.product) {
     notFound();
   }
+
+  const { product, stats, relatedProducts } = data;
 
   const categoryName =
     typeof product.category === 'object' && product.category !== null
@@ -224,25 +216,20 @@ export default async function ProductPage({ params }: Props) {
     description: product.description,
     applicationCategory: categoryName,
     operatingSystem: 'Web',
-    offers: {
-      '@type': 'Offer',
-      price: product.pricing?.startingPrice || 0,
-      priceCurrency: product.pricing?.currency || 'USD',
-    },
-    aggregateRating: product.reviewsCount ? {
-      '@type': 'AggregateRating',
-      ratingValue: product.averageRating || 5.0,
-      reviewCount: product.reviewsCount,
-    } : undefined,
+    url: product.websiteUrl,
   };
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
-      <ProductDetailClient product={product} />
+      <ProductDetailClient
+        product={product}
+        stats={stats}
+        relatedProducts={relatedProducts}
+      />
     </>
   );
 }

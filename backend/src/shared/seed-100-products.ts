@@ -1,7 +1,6 @@
 import mongoose, { Types } from 'mongoose';
 import { Category } from '../models/Category.model';
 import { Product } from '../models/Product.model';
-import { User } from '../models/User.model';
 import { connectDB } from './db';
 import { logger } from './logger';
 import { ProductStatus } from './constants';
@@ -951,7 +950,7 @@ export const CURATED_100_PRODUCTS: ProductSeedItem[] = [
     canonicalDomain: 'growthloop.io',
     name: 'GrowthLoop',
     tagline: 'First-party multi-touch marketing attribution without privacy cookie loss',
-    description: 'Trace customer signups back to exact organic newsletter mentions, podcast sponsors, and Reddit conversations.',
+    description: 'Trace customer conversions back to exact organic newsletter mentions, podcast sponsors, and Reddit conversations.',
     websiteUrl: 'https://growthloop.io',
     categorySlug: 'marketing-tools',
     pricing: { model: 'paid', startingPrice: 79 },
@@ -1366,10 +1365,6 @@ export async function seed100Products(): Promise<{ seededCount: number }> {
     categoryMap.set(cat.slug, cat._id as Types.ObjectId);
   }
 
-  // 2. Fetch default founder
-  const founder = await User.findOne({ role: 'FOUNDER' }).lean();
-  const defaultFounderId = founder?._id || new Types.ObjectId();
-
   let count = 0;
   for (const item of CURATED_100_PRODUCTS) {
     const catId = categoryMap.get(item.categorySlug) || Array.from(categoryMap.values())[0];
@@ -1385,8 +1380,6 @@ export async function seed100Products(): Promise<{ seededCount: number }> {
           tagline: item.tagline,
           description: item.description,
           websiteUrl: item.websiteUrl,
-          founderId: defaultFounderId,
-          submittedById: defaultFounderId,
           categoryId: catId,
           pricing: item.pricing,
           media: {

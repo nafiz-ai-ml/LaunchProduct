@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { Product, IProduct, User, Category } from '../models';
+import { Product, IProduct, Category } from '../models';
 import { ProductStatus } from '../shared/constants';
 
 export interface ProductSearchParams {
@@ -61,7 +61,6 @@ export class ProductRepository {
     if (!slug) return null;
     return Product.findOne({ slug: slug.toLowerCase().trim() })
       .populate('categoryId', 'name slug icon')
-      .populate('founderId', 'name email avatarUrl karmaScore isVerified founderProfile')
       .lean<IProduct>()
       .exec();
   }
@@ -172,35 +171,6 @@ export class ProductRepository {
     ]);
 
     return { products, total };
-  }
-
-  /**
-   * 8. Find products belonging to a founder
-   */
-  async findByFounderId(founderId: string | Types.ObjectId, status?: string): Promise<IProduct[]> {
-    if (!founderId || (typeof founderId === 'string' && !Types.ObjectId.isValid(founderId))) {
-      return [];
-    }
-    const filter: Record<string, unknown> = {
-      founderId: new Types.ObjectId(founderId),
-    };
-    if (status) {
-      filter.status = status;
-    }
-    return Product.find(filter).sort({ createdAt: -1 }).lean<IProduct[]>().exec();
-  }
-
-  /**
-   * 9. Find products submitted by a user (hunter submissions)
-   */
-  async findBySubmitterId(submitterId: string | Types.ObjectId): Promise<IProduct[]> {
-    if (!submitterId || (typeof submitterId === 'string' && !Types.ObjectId.isValid(submitterId))) {
-      return [];
-    }
-    return Product.find({ submittedById: new Types.ObjectId(submitterId) })
-      .sort({ createdAt: -1 })
-      .lean<IProduct[]>()
-      .exec();
   }
 
   /**

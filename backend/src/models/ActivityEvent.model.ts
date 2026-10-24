@@ -3,7 +3,6 @@ import { EventSource, EventSourceType } from '../shared/constants';
 
 export interface IActivityEvent {
   _id: Types.ObjectId;
-  userId?: Types.ObjectId;
   productId?: Types.ObjectId;
   eventType: string;
   eventSource: EventSourceType;
@@ -17,11 +16,6 @@ export type ActivityEventDocument = IActivityEvent &
 
 const ActivityEventSchema = new Schema<IActivityEvent>(
   {
-    userId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
     productId: {
       type: Schema.Types.ObjectId,
       ref: 'Product',
@@ -67,9 +61,6 @@ const ActivityEventSchema = new Schema<IActivityEvent>(
 // Indexes
 // 1. Analytics aggregation: product performance by source and event type over time
 ActivityEventSchema.index({ productId: 1, eventSource: 1, eventType: 1, createdAt: -1 });
-
-// 2. User activity stream timeline
-ActivityEventSchema.index({ userId: 1, eventType: 1, createdAt: -1 });
 
 // 3. TTL: automatically purge events older than 90 days (7,776,000 seconds)
 ActivityEventSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7776000 });

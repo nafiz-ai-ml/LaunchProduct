@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { paymentService } from '../services/payment.service';
-import { AppError, ValidationError, AuthenticationError } from '../shared/errors';
+import { AppError, ValidationError } from '../shared/errors';
+import { config } from '../shared/config';
 
 function getParam(param: string | string[] | undefined): string {
   if (Array.isArray(param)) return param[0] || '';
@@ -15,6 +16,20 @@ export class WebhookController {
   async handlePaymentWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const provider = getParam(req.params.provider || 'paddle').toLowerCase().trim();
+
+      if (provider !== 'paddle') {
+        throw new ValidationError(`Unsupported payment provider '${provider}'. Paddle is the only supported provider.`, [
+          { field: 'provider', code: 'INVALID_ENUM', message: 'Provider must be paddle' },
+        ]);
+      }
+
+      if (!config.PADDLE_WEBHOOK_SECRET || !config.PADDLE_WEBHOOK_SECRET.trim()) {
+        throw new AppError(
+          503,
+          'WEBHOOK_SECRET_NOT_CONFIGURED',
+          'Paddle webhook secret is not configured on this server'
+        );
+      }
 
       // Extract raw body buffer
       let rawBody: Buffer;
@@ -32,22 +47,11 @@ export class WebhookController {
         ]);
       }
 
-      // Extract signature header based on provider conventions
-      let signatureHeader: string | undefined = undefined;
-      if (provider === 'paddle') {
-        signatureHeader =
-          (req.headers['paddle-signature'] as string) ||
-          (req.headers['x-paddle-signature'] as string) ||
-          (req.headers['x-signature'] as string);
-      } else if (provider === 'lemonsqueezy' || provider === 'lemon_squeezy') {
-        signatureHeader =
-          (req.headers['x-signature'] as string) ||
-          (req.headers['x-lemon-squeezy-signature'] as string);
-      } else {
-        signatureHeader =
-          (req.headers['x-signature'] as string) ||
-          (req.headers['paddle-signature'] as string);
-      }
+      // Extract signature header for Paddle
+      const signatureHeader =
+        (req.headers['paddle-signature'] as string) ||
+        (req.headers['x-paddle-signature'] as string) ||
+        (req.headers['x-signature'] as string);
 
       if (!signatureHeader) {
         throw new AppError(
@@ -64,7 +68,6 @@ export class WebhookController {
         success: true,
         data: {
           message: result.message || 'Webhook processed successfully.',
-          campaignId: result.campaignId,
           productId: result.productId,
         },
       });

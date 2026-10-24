@@ -1,7 +1,6 @@
 import express, { Express, Request, Response } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
-import cookieParser from 'cookie-parser';
 import mongoSanitize from 'express-mongo-sanitize';
 import { config } from './shared/config';
 import { logger, requestLogger } from './shared/logger';
@@ -15,6 +14,53 @@ import healthRoutes from './routes/health.routes';
 import { healthController } from './controllers/health.controller';
 import { metricsMiddleware } from './middleware/metrics.middleware';
 import { setupBullBoard, startAllWorkers, stopAllWorkers } from './workers';
+import { PaymentWebhookEvent, Payment, Product } from './models';
+import {
+  isBullBoardEnabled,
+  bullBoardRateLimiter,
+  bullBoardAuthMiddleware,
+  metricsAuthMiddleware,
+} from './middleware/ops-auth.middleware';
+
+export async function assertCriticalProductionIndexes(): Promise<void> {
+  const assertions = [
+    {
+      model: PaymentWebhookEvent,
+      name: 'PaymentWebhookEvent.providerEventId (unique)',
+      check: (indexes: any[]) =>
+        indexes.some((idx) => idx.key?.providerEventId === 1 && idx.unique === true),
+    },
+    {
+      model: Payment,
+      name: 'Payment.providerPaymentId (unique)',
+      check: (indexes: any[]) =>
+        indexes.some((idx) => idx.key?.providerPaymentId === 1 && idx.unique === true),
+    },
+    {
+      model: Payment,
+      name: 'Payment.providerEventId (unique)',
+      check: (indexes: any[]) =>
+        indexes.some((idx) => idx.key?.providerEventId === 1 && idx.unique === true),
+    },
+    {
+      model: Product,
+      name: 'Product.slug (unique)',
+      check: (indexes: any[]) =>
+        indexes.some((idx) => idx.key?.slug === 1 && idx.unique === true),
+    },
+  ];
+
+  for (const assertion of assertions) {
+    const indexes = await assertion.model.collection.indexes();
+    if (!assertion.check(indexes)) {
+      logger.fatal(
+        `Critical index check failed: missing required unique index ${assertion.name}. Run 'npm run sync-indexes:prod' before starting server.`
+      );
+      process.exit(1);
+    }
+  }
+  logger.info('Verified all critical production unique indexes are present');
+}
 
 export function createApp(): Express {
   // 1. Create an Express app instance
@@ -30,7 +76,7 @@ export function createApp(): Express {
     crossOriginEmbedderPolicy: false,
   }));
 
-  // b. cors() — Allow frontend origin (NEXT_PUBLIC_API_URL / FRONTEND_URL) with credentials: true
+  // b. cors() — Allow frontend origin (NEXT_PUBLIC_API_URL / FRONTEND_URL) with credentials: false
   const frontendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.FRONTEND_URL || config.FRONTEND_URL || 'http://localhost:3000';
   const corsOrigins = [
     frontendUrl,
@@ -42,9 +88,9 @@ export function createApp(): Express {
   ];
   app.use(cors({
     origin: corsOrigins,
-    credentials: true,
+    credentials: false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'Accept', 'X-Requested-With', 'x-request-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'Accept', 'X-Requested-With', 'x-request-id', 'x-metrics-token'],
   }));
 
   // c. express.json({ limit: '2mb' }) — JSON body parser with rawBody retention for webhooks
@@ -60,32 +106,38 @@ export function createApp(): Express {
   // d. express.urlencoded({ extended: true }) — URL-encoded body parser
   app.use(express.urlencoded({ extended: true }));
 
-  // e. cookieParser(SESSION_COOKIE_SECRET) — Cookie parser
-  const cookieSecret = process.env.SESSION_COOKIE_SECRET || config.SESSION_COOKIE_SECRET;
-  app.use(cookieParser(cookieSecret));
-
-  // f. requestLogger — Pino HTTP request logging
+  // e. requestLogger — Pino HTTP request logging
   app.use(requestLogger);
 
-  // g. metricsMiddleware — Prometheus HTTP metrics tracking
+  // f. metricsMiddleware — Prometheus HTTP metrics tracking
   app.use(metricsMiddleware);
 
-  // h. mongo-sanitize — Prevent NoSQL injection
+  // g. mongo-sanitize — Prevent NoSQL injection
   app.use(mongoSanitize());
 
   // 3. Mount health check routes at /api/health (liveness and readiness probes)
   app.use('/api/health', healthRoutes);
 
-  // 4. Mount Prometheus metrics scrape endpoint at /api/metrics
-  app.get('/api/metrics', (req: Request, res: Response) => {
+  // 4. Mount Prometheus metrics scrape endpoint at /api/metrics (constant-time token authorization)
+  app.get('/api/metrics', metricsAuthMiddleware, (req: Request, res: Response) => {
     healthController.getMetrics(req, res);
   });
 
-  // 5. Mount BullMQ Board UI at /admin/queues
-  try {
-    app.use('/admin/queues', setupBullBoard('/admin/queues'));
-  } catch (boardErr: any) {
-    logger.warn({ err: boardErr.message }, 'Failed to initialize BullMQ board UI');
+  // 5. Mount BullMQ Board UI at /admin/queues (only when enabled via secure credentials)
+  if (isBullBoardEnabled()) {
+    try {
+      app.use(
+        '/admin/queues',
+        bullBoardRateLimiter,
+        bullBoardAuthMiddleware,
+        setupBullBoard('/admin/queues')
+      );
+      logger.info('Bull Board queue dashboard is ENABLED at /admin/queues (HTTP Basic auth protected)');
+    } catch (boardErr: any) {
+      logger.warn({ err: boardErr.message }, 'Failed to initialize BullMQ board UI');
+    }
+  } else {
+    logger.info('Bull Board queue dashboard is DISABLED (BULL_BOARD_USER / BULL_BOARD_PASSWORD not configured or password under 24 chars)');
   }
 
   // 5. Mount unversioned embed routes for SVG Badges and OpenGraph cards
@@ -118,6 +170,11 @@ export async function startServer(): Promise<void> {
   try {
     // a. Calls connectDB()
     await connectDB();
+
+    // In production, assert that critical unique indexes exist before accepting traffic
+    if (process.env.NODE_ENV === 'production') {
+      await assertCriticalProductionIndexes();
+    }
 
     // b. Connects Redis (with fallback in local dev if Redis daemon is offline)
     redis.connect().catch((redisErr) => {

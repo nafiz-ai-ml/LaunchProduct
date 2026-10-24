@@ -5,16 +5,15 @@ import { Product } from '../models/Product.model';
 import { Payment } from '../models/Payment.model';
 import { RankingLedger } from '../models/RankingLedger.model';
 import { PaymentWebhookEvent } from '../models/PaymentWebhookEvent.model';
-import { User } from '../models/User.model';
 import { ProductStatus, PaymentStatus } from '../shared/constants';
 import { AppError, ValidationError } from '../shared/errors';
+import { config } from '../shared/config';
 
 jest.mock('../models/Product.model');
 jest.mock('../models/Payment.model');
 jest.mock('../models/RankingLedger.model');
 jest.mock('../models/PaymentWebhookEvent.model');
 jest.mock('../models/ActivityEvent.model');
-jest.mock('../models/User.model');
 jest.mock('../models/SystemSettings.model', () => ({
   SystemSettings: {
     findOne: jest.fn().mockReturnValue({
@@ -47,7 +46,7 @@ jest.spyOn(mongoose, 'startSession').mockImplementation(async () => {
 });
 
 describe('Payment System & Pay-to-Rank End-to-End Verification Tests', () => {
-  const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET || 'paddle_webhook_secret_dev_key_fallback_12345';
+  const webhookSecret = config.PADDLE_WEBHOOK_SECRET || process.env.PADDLE_WEBHOOK_SECRET || '';
 
   function generatePaddleSignature(bodyStr: string, timestampSec: number): string {
     const payloadToSign = `${timestampSec}:${bodyStr}`;
@@ -139,7 +138,7 @@ describe('Payment System & Pay-to-Rank End-to-End Verification Tests', () => {
       const mockProduct = {
         _id: mockProductId,
         name: 'VectorPulse Cloud',
-        status: ProductStatus.PENDING_REVIEW,
+        status: ProductStatus.DRAFT,
         paidRankingAmountCents: 0,
         todayPaidAmountCents: 0,
         todayPaidDate: null,

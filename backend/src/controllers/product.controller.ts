@@ -1,8 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
-import { Product, Vote } from '../models';
 import { productService } from '../services/product.service';
-import { ValidationError, AuthenticationError } from '../shared/errors';
 
 function getParam(param: string | string[] | undefined): string {
   if (Array.isArray(param)) return param[0] || '';
@@ -22,109 +19,7 @@ function getMetadata(req: Request, extra?: Record<string, unknown>) {
 
 export class ProductController {
   /**
-   * 1. POST /api/v1/products/scrape-preview
-   * Submit website URL for asynchronous background scraping
-   */
-  async scrapePreview(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user || !req.user.userId) {
-        throw new AuthenticationError('Authentication required to submit products', 'UNAUTHORIZED');
-      }
-
-      const url = req.body.url || req.body.websiteUrl;
-      if (!url) {
-        throw new ValidationError('Website URL is required', [
-          { field: 'url', code: 'REQUIRED', message: 'Please provide a valid website URL to scrape' },
-        ]);
-      }
-
-      const result = await productService.submitProductUrl(url, req.user.userId);
-
-      res.status(200).json({
-        success: true,
-        data: {
-          jobId: result.jobId,
-          draft: result.draft,
-          message: 'Scrape ingestion and metadata extraction completed successfully',
-          statusUrl: `/api/v1/products/scrape-status/${result.jobId}`,
-        },
-        meta: getMetadata(req),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * 2. GET /api/v1/products/scrape-status/:jobId
-   * Poll status of an active scrape ingestion job
-   */
-  async getScrapeStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const jobId = getParam(req.params.jobId);
-      const status = await productService.getScrapeJobStatus(jobId, req.user?.userId || '');
-
-      res.status(200).json({
-        success: true,
-        data: status,
-        meta: getMetadata(req),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * 3. POST /api/v1/products
-   * Manual product submission (fallback)
-   */
-  async manualSubmit(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user || !req.user.userId) {
-        throw new AuthenticationError('Authentication required to submit products', 'UNAUTHORIZED');
-      }
-
-      const product = await productService.manualSubmitProduct(req.body, req.user.userId);
-
-      res.status(201).json({
-        success: true,
-        data: {
-          product,
-        },
-        meta: getMetadata(req),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * 4. PUT /api/v1/products/:id/confirm
-   * Confirm draft product metadata and advance to PENDING_REVIEW
-   */
-  async confirmDraft(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user || !req.user.userId) {
-        throw new AuthenticationError('Authentication required to confirm draft product', 'UNAUTHORIZED');
-      }
-
-      const id = getParam(req.params.id);
-      const confirmed = await productService.confirmDraftProduct(id, req.user.userId, req.body);
-
-      res.status(200).json({
-        success: true,
-        data: {
-          product: confirmed,
-        },
-        meta: getMetadata(req),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * 5. GET /api/v1/products
+   * 1. GET /api/v1/products
    * Public directory browse and full-text search with pagination
    */
   async search(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -169,19 +64,17 @@ export class ProductController {
   }
 
   /**
-   * 6. GET /api/v1/products/:slug
-   * Public product detail page
+   * 2. GET /api/v1/products/:slug
+   * Public product detail page with rank metrics, outbid calculators, and related products
    */
   async getBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const slug = getParam(req.params.slug);
-      const product = await productService.getProductBySlug(slug);
+      const details = await productService.getProductDetailsBySlug(slug);
 
       res.status(200).json({
         success: true,
-        data: {
-          product,
-        },
+        data: details,
         meta: getMetadata(req),
       });
     } catch (error) {
@@ -190,23 +83,17 @@ export class ProductController {
   }
 
   /**
-   * 7. PATCH /api/v1/products/:id
-   * Founder update product with revision snapshot
+   * 2.5 GET /api/v1/products/preview-domain
+   * Real-time website favicon logo extraction and ranking simulation
    */
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async previewDomain(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user || !req.user.userId) {
-        throw new AuthenticationError('Authentication required to update product', 'UNAUTHORIZED');
-      }
-
-      const id = getParam(req.params.id);
-      const updated = await productService.updateProduct(id, req.user.userId, req.body);
+      const url = (req.query.url as string) || (req.query.domain as string) || '';
+      const preview = await productService.previewDomain(url);
 
       res.status(200).json({
         success: true,
-        data: {
-          product: updated,
-        },
+        data: preview,
         meta: getMetadata(req),
       });
     } catch (error) {
@@ -215,99 +102,8 @@ export class ProductController {
   }
 
   /**
-   * 8. DELETE /api/v1/products/:id
-   * Soft delete product
-   */
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user || !req.user.userId) {
-        throw new AuthenticationError('Authentication required to delete product', 'UNAUTHORIZED');
-      }
-
-      const id = getParam(req.params.id);
-      await productService.softDeleteProduct(id, req.user.userId);
-
-      res.status(200).json({
-        success: true,
-        data: {
-          message: 'Product successfully deleted',
-        },
-        meta: getMetadata(req),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * 9. GET /api/v1/products/:id/revisions
-   * Historical revision audit history
-   */
-  async getRevisions(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const id = getParam(req.params.id);
-      const revisions = await productService.getRevisionHistory(id);
-
-      res.status(200).json({
-        success: true,
-        data: {
-          revisions,
-        },
-        meta: getMetadata(req),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * 10. GET /api/v1/products/me/mine
-   * Retrieve products belonging to or submitted by the authenticated founder
-   */
-  async getMyProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user || !req.user.userId) {
-        throw new AuthenticationError('Authentication required to view your products', 'UNAUTHORIZED');
-      }
-
-      const uid = new Types.ObjectId(req.user.userId);
-      const products = await Product.find({
-        $or: [{ founderId: uid }, { submittedById: uid }],
-        status: { $ne: 'DELETED' as any },
-      })
-        .sort({ createdAt: -1 })
-        .populate('categoryId', 'name slug icon')
-        .lean();
-
-      // Hydrate vote counts
-      const productIds = products.map((p) => p._id);
-      const voteAgg = await Vote.aggregate([
-        { $match: { productId: { $in: productIds }, status: 'VALID' } },
-        { $group: { _id: '$productId', count: { $sum: 1 } } },
-      ]);
-      const voteMap = new Map(voteAgg.map((v) => [v._id.toString(), v.count]));
-
-      const hydrated = products.map((p) => ({
-        ...p,
-        id: p._id.toString(),
-        upvotesCount: voteMap.get(p._id.toString()) || 0,
-      }));
-
-      res.status(200).json({
-        success: true,
-        data: {
-          products: hydrated,
-        },
-        meta: getMetadata(req),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * 8. POST /api/v1/products/public-submit
-   * Accountless product submission & Pay-to-Rank entry point.
+   * 3. POST /api/v1/products and POST /api/v1/products/public-submit
+   * Anonymous public product submission & Pay-to-Rank entry point.
    */
   async publicSubmit(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -329,7 +125,8 @@ export class ProductController {
         success: true,
         data: result,
         meta: getMetadata(req, {
-          commercialDisclosure: 'Positions are determined by verified qualifying paid ranking amounts, not independent editorial endorsement.',
+          commercialDisclosure:
+            'Positions are determined by verified qualifying paid ranking amounts, not independent editorial endorsement.',
         }),
       });
     } catch (error) {

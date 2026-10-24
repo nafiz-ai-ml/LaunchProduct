@@ -1,25 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
 import { Product } from '../models/Product.model';
-import { Vote } from '../models/Vote.model';
 import { DailyLeaderboardSnapshot } from '../models/DailyLeaderboardSnapshot.model';
-import { VoteStatus } from '../shared/constants';
 import { redis, isRedisConnected } from '../shared/redis';
 import { NotFoundError } from '../shared/errors';
 import { logger } from '../shared/logger';
 
+import { escapeXml } from '../shared/escape';
+
 function getParam(param: string | string[] | undefined): string {
   if (Array.isArray(param)) return param[0] || '';
   return param || '';
-}
-
-function escapeXml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 }
 
 export class BadgeController {
@@ -80,16 +71,8 @@ export class BadgeController {
         }
       }
 
-      // 2. Fetch live vote count
-      let voteCount = 0;
-      try {
-        voteCount = await Vote.countDocuments({
-          productId: product._id,
-          status: VoteStatus.VALID,
-        });
-      } catch (err: any) {
-        logger.warn({ err: err.message }, 'Failed to fetch vote count for badge');
-      }
+      // 2. Engagement count
+      const voteCount = 0;
 
       // 3. Determine headline based on rank
       let badgeTitle = 'Featured on';

@@ -1,8 +1,6 @@
 import { Types } from 'mongoose';
 import { Product, IProduct } from '../models/Product.model';
-import { Vote } from '../models/Vote.model';
 import { ActivityEvent } from '../models/ActivityEvent.model';
-import { Review } from '../models/Review.model';
 import { Category } from '../models/Category.model';
 import { SystemSettings } from '../models/SystemSettings.model';
 import { RankingLedger } from '../models/RankingLedger.model';
@@ -150,31 +148,19 @@ export class RankingService {
 
     const productIds = products.map((p) => p._id);
 
-    // Fetch engagement numbers (votes and clicks) for social proof (never affects ranking)
-    const [voteCounts, clickCounts, reviewCounts] = await Promise.all([
-      Vote.aggregate([
-        { $match: { productId: { $in: productIds }, status: 'VALID' } },
-        { $group: { _id: '$productId', count: { $sum: 1 } } },
-      ]),
-      ActivityEvent.aggregate([
-        {
-          $match: {
-            productId: { $in: productIds },
-            eventType: 'OUTBOUND_CLICK',
-            'metadata.isDuplicate': { $ne: true },
-          },
+    // Fetch outbound clicks for social proof (never affects ranking)
+    const clickCounts = await ActivityEvent.aggregate([
+      {
+        $match: {
+          productId: { $in: productIds },
+          eventType: 'OUTBOUND_CLICK',
+          'metadata.isDuplicate': { $ne: true },
         },
-        { $group: { _id: '$productId', count: { $sum: 1 } } },
-      ]),
-      Review.aggregate([
-        { $match: { productId: { $in: productIds }, status: { $ne: 'REJECTED' } } },
-        { $group: { _id: '$productId', count: { $sum: 1 } } },
-      ]),
+      },
+      { $group: { _id: '$productId', count: { $sum: 1 } } },
     ]);
 
-    const voteMap = new Map(voteCounts.map((v) => [v._id.toString(), v.count]));
-    const clickMap = new Map(clickCounts.map((c) => [c._id.toString(), c.count]));
-    const reviewMap = new Map(reviewCounts.map((r) => [r._id.toString(), r.count]));
+    const clickMap = new Map<string, number>(clickCounts.map((c: any) => [c._id.toString(), c.count]));
 
     const items: LeaderboardEntry[] = products.map((p, idx) => {
       const pidStr = p._id.toString();
@@ -186,8 +172,8 @@ export class RankingService {
         formattedAmount: this.formatCents(amountCents),
         productId: pidStr,
         product: p as any,
-        voteCount: voteMap.get(pidStr) || 0,
-        reviewCount: reviewMap.get(pidStr) || 0,
+        voteCount: 0,
+        reviewCount: 0,
         qualifiedClickCount: clickMap.get(pidStr) || 0,
         firstPaidAt: p.firstPaidAt || null,
         lastPaidAt: p.lastPaidAt || null,
@@ -263,25 +249,18 @@ export class RankingService {
     const paginatedProducts = sortedProducts.slice(skip, skip + limit);
 
     const pagedIds = paginatedProducts.map((p) => p._id);
-    const [voteCounts, clickCounts] = await Promise.all([
-      Vote.aggregate([
-        { $match: { productId: { $in: pagedIds }, status: 'VALID' } },
-        { $group: { _id: '$productId', count: { $sum: 1 } } },
-      ]),
-      ActivityEvent.aggregate([
-        {
-          $match: {
-            productId: { $in: pagedIds },
-            eventType: 'OUTBOUND_CLICK',
-            'metadata.isDuplicate': { $ne: true },
-          },
+    const clickCounts = await ActivityEvent.aggregate([
+      {
+        $match: {
+          productId: { $in: pagedIds },
+          eventType: 'OUTBOUND_CLICK',
+          'metadata.isDuplicate': { $ne: true },
         },
-        { $group: { _id: '$productId', count: { $sum: 1 } } },
-      ]),
+      },
+      { $group: { _id: '$productId', count: { $sum: 1 } } },
     ]);
 
-    const voteMap = new Map(voteCounts.map((v) => [v._id.toString(), v.count]));
-    const clickMap = new Map(clickCounts.map((c) => [c._id.toString(), c.count]));
+    const clickMap = new Map<string, number>(clickCounts.map((c: any) => [c._id.toString(), c.count]));
 
     const items: LeaderboardEntry[] = paginatedProducts.map((p, idx) => {
       const pidStr = p._id.toString();
@@ -293,7 +272,7 @@ export class RankingService {
         formattedAmount: this.formatCents(amountCents),
         productId: pidStr,
         product: p,
-        voteCount: voteMap.get(pidStr) || 0,
+        voteCount: 0,
         reviewCount: 0,
         qualifiedClickCount: clickMap.get(pidStr) || 0,
         firstPaidAt: p.firstPaidAtToday || null,
@@ -344,25 +323,18 @@ export class RankingService {
     ]);
 
     const productIds = products.map((p) => p._id);
-    const [voteCounts, clickCounts] = await Promise.all([
-      Vote.aggregate([
-        { $match: { productId: { $in: productIds }, status: 'VALID' } },
-        { $group: { _id: '$productId', count: { $sum: 1 } } },
-      ]),
-      ActivityEvent.aggregate([
-        {
-          $match: {
-            productId: { $in: productIds },
-            eventType: 'OUTBOUND_CLICK',
-            'metadata.isDuplicate': { $ne: true },
-          },
+    const clickCounts = await ActivityEvent.aggregate([
+      {
+        $match: {
+          productId: { $in: productIds },
+          eventType: 'OUTBOUND_CLICK',
+          'metadata.isDuplicate': { $ne: true },
         },
-        { $group: { _id: '$productId', count: { $sum: 1 } } },
-      ]),
+      },
+      { $group: { _id: '$productId', count: { $sum: 1 } } },
     ]);
 
-    const voteMap = new Map(voteCounts.map((v) => [v._id.toString(), v.count]));
-    const clickMap = new Map(clickCounts.map((c) => [c._id.toString(), c.count]));
+    const clickMap = new Map<string, number>(clickCounts.map((c: any) => [c._id.toString(), c.count]));
 
     const items: LeaderboardEntry[] = products.map((p, idx) => {
       const pidStr = p._id.toString();
@@ -374,7 +346,7 @@ export class RankingService {
         formattedAmount: this.formatCents(amountCents),
         productId: pidStr,
         product: p as any,
-        voteCount: voteMap.get(pidStr) || 0,
+        voteCount: 0,
         reviewCount: 0,
         qualifiedClickCount: clickMap.get(pidStr) || 0,
         firstPaidAt: p.firstPaidAt || null,
@@ -575,11 +547,6 @@ export class RankingService {
     const launchStart = new Date(
       Date.UTC(launchDate.getUTCFullYear(), launchDate.getUTCMonth(), launchDate.getUTCDate(), 0, 0, 0, 0)
     );
-    const vValid = await Vote.countDocuments({
-      productId: new Types.ObjectId(productId),
-      status: 'VALID',
-      createdAt: { $gte: launchStart },
-    });
     const uOrganicClicks = await ActivityEvent.countDocuments({
       productId: new Types.ObjectId(productId),
       eventType: 'OUTBOUND_CLICK',
@@ -590,7 +557,7 @@ export class RankingService {
     const elapsedMs = Math.max(0, now.getTime() - launchStart.getTime());
     const deltaTHours = Math.min(24, elapsedMs / (3600 * 1000));
     const weights = await this.getRankingWeights();
-    const numerator = vValid * weights.W_v + uOrganicClicks * weights.W_c;
+    const numerator = uOrganicClicks * weights.W_c;
     const denominator = Math.pow(deltaTHours + 1, weights.GAMMA_LAUNCH);
     return Math.round((numerator / denominator) * 10000) / 10000;
   }
@@ -603,15 +570,6 @@ export class RankingService {
     for (let d = 1; d <= 7; d++) {
       const dayEnd = new Date(now.getTime() - (d - 1) * 24 * 3600 * 1000);
       const dayStart = new Date(now.getTime() - d * 24 * 3600 * 1000);
-      const vD = await Vote.countDocuments({
-        productId: pid,
-        status: 'VALID',
-        createdAt: { $gte: dayStart, $lt: dayEnd },
-      });
-      const rD = await Review.countDocuments({
-        productId: pid,
-        createdAt: { $gte: dayStart, $lt: dayEnd },
-      });
       const uClicksD = await ActivityEvent.countDocuments({
         productId: pid,
         eventType: 'OUTBOUND_CLICK',
@@ -620,7 +578,7 @@ export class RankingService {
         'metadata.isDuplicate': { $ne: true },
       });
       const dayScore =
-        (vD * weights.W_v + rD * weights.W_r + Math.log10(uClicksD + 1) * weights.W_u) *
+        (Math.log10(uClicksD + 1) * weights.W_u) *
         Math.pow(weights.LAMBDA_DECAY, d - 1);
       totalScore += dayScore;
     }
@@ -629,30 +587,9 @@ export class RankingService {
 
   async computeAllTimeScore(productId: string): Promise<number> {
     if (!Types.ObjectId.isValid(productId)) return 0;
-    const pid = new Types.ObjectId(productId);
-    const vTotal = await Vote.countDocuments({ productId: pid, status: 'VALID' });
-    let reviewComponent = 0;
-    try {
-      const [reviewStats] = await Review.aggregate([
-        { $match: { productId: pid } },
-        {
-          $group: {
-            _id: null,
-            count: { $sum: 1 },
-            avgRating: { $avg: '$rating' },
-          },
-        },
-      ]);
-      if (reviewStats && reviewStats.count > 0) {
-        const nReviews = reviewStats.count;
-        const avgRating = reviewStats.avgRating || 0;
-        reviewComponent = avgRating * (nReviews / (nReviews + 5)) * 60;
-      }
-    } catch {
-      reviewComponent = 0;
-    }
-    const voteComponent = Math.log10(vTotal + 1) * 40;
-    return Math.round((voteComponent + reviewComponent) * 10000) / 10000;
+    const prod = await Product.findById(productId).select('paidRankingAmountCents').lean();
+    const cents = prod?.paidRankingAmountCents || 0;
+    return Math.round((cents / 100) * 100) / 100;
   }
 
   async generateDailyLeaderboard(

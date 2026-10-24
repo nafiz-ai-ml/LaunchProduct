@@ -25,7 +25,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'Do I need to create a user account to submit a product?',
-    a: 'No! LaunchProduct is 100% accountless. You do not need a password, account dashboard, or login. You simply enter your product details and website URL, select your initial ranking payment ($5.99 min), and complete checkout through our secure Merchant of Record provider (Paddle / Lemon Squeezy).',
+    a: 'No! LaunchProduct is 100% accountless. You do not need a password, account dashboard, or authentication. You simply enter your product details and website URL, select your initial ranking payment ($5.99 min), and complete checkout through our secure Merchant of Record provider (Paddle / Lemon Squeezy).',
   },
   {
     q: 'What is the minimum payment to rank a product?',
@@ -48,12 +48,12 @@ const FAQS: FaqItem[] = [
     a: 'Our system automatically normalizes website URLs by canonical domain (e.g. example.com). If your product is already listed, submitting it again simply registers a new daily ranking payment for today’s UTC board. It does not create a duplicate listing.',
   },
   {
-    q: 'Do community upvotes and reviews influence my rank?',
-    a: 'No. While upvotes and community reviews are available as social engagement metrics, rank is determined strictly by qualifying paid ranking amounts. This guarantees 100% transparency without bot voting syndicates or vote-buying manipulation.',
+    q: 'Does ranking require community votes or social metrics?',
+    a: 'No. Rank is determined strictly by qualifying paid ranking amounts. This guarantees 100% transparency without bot syndicates or manipulation.',
   },
   {
-    q: 'Does ranking #1 guarantee traffic, signups, or revenue?',
-    a: 'No. Top placement provides prominent visibility across our global platform, but LaunchProduct does not guarantee specific visitor volumes, signups, or sales. Conversion depends on your product’s value proposition, pricing, and market demand.',
+    q: 'Does ranking #1 guarantee traffic, conversions, or revenue?',
+    a: 'No. Top placement provides prominent visibility across our global platform, but LaunchProduct does not guarantee specific visitor volumes, conversions, or sales. Conversion depends on your product’s value proposition, pricing, and market demand.',
   },
   {
     q: 'What is your refund policy?',

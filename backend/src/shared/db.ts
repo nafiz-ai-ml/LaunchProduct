@@ -25,7 +25,8 @@ export async function connectDB(): Promise<void> {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
     maxPoolSize: 10,
-    minPoolSize: 2,
+    // autoIndex is disabled in production to prevent blocking live startup traffic.
+    // In production, all schema indexes are built pre-boot by the `sync-indexes` deploy script.
     autoIndex: process.env.NODE_ENV !== 'production',
   };
 

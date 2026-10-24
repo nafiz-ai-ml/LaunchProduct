@@ -1,49 +1,18 @@
 import { Types } from 'mongoose';
 import { productRepository, ProductSearchParams } from '../repositories/product.repository';
 import { Product, IProduct } from '../models/Product.model';
-import { ProductRevision, IProductRevision } from '../models/ProductRevision.model';
+import { Category } from '../models/Category.model';
 import { ActivityEvent } from '../models/ActivityEvent.model';
-import { ProductStatus, EventSource } from '../shared/constants';
+import { RankingLedger } from '../models/RankingLedger.model';
+import { ProductStatus } from '../shared/constants';
 import {
-  ConflictError,
   NotFoundError,
-  AuthorizationError,
   ValidationError,
 } from '../shared/errors';
-import { redis, isRedisConnected } from '../shared/redis';
-import { scraperQueue } from '../shared/scraper-queue';
-import { logger } from '../shared/logger';
-import { scrapeAndSynthesizeMetadata, ScrapedProductMetadata } from './scraper.service';
+import { isSafeUrl } from '../shared/zod-schemas';
 import { rankingService } from './ranking.service';
 import { paymentService } from './payment.service';
-
-export interface ProductDraftInput {
-  name: string;
-  tagline: string;
-  description: string;
-  websiteUrl?: string;
-  categoryId: string;
-  pricing?: {
-    model: 'free' | 'freemium' | 'paid' | 'open_source';
-    startingPrice?: number;
-    currency?: string;
-  };
-  media?: {
-    logoUrl?: string;
-    bannerUrl?: string;
-    screenshotUrls?: string[];
-  };
-}
-
-export interface JobStatusResult {
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-  jobId: string;
-  productId?: string;
-  slug?: string;
-  data?: Record<string, unknown>;
-  error?: string;
-  code?: string;
-}
+import { scrapeAndSynthesizeMetadata } from './scraper.service';
 
 /**
  * Normalizes URL and strips extraneous parameters
@@ -67,217 +36,16 @@ export function extractCanonicalDomain(urlStr: string): string {
 
 export class ProductService {
   /**
-   * 1. Submit product website URL for background scraping
+   * 1. Public directory browse and full-text search with pagination
    */
-  async submitProductUrl(
-    url: string,
-    userId: string
-  ): Promise<{ jobId: string; draft?: ScrapedProductMetadata }> {
-    if (!url || typeof url !== 'string') {
-      throw new ValidationError('A valid website URL is required', [
-        { field: 'url', code: 'REQUIRED', message: 'URL cannot be empty' },
-      ]);
-    }
-
-    const normalizedUrl = normalizeUrl(url);
-    const domain = extractCanonicalDomain(normalizedUrl);
-
-    // Check domain uniqueness across existing products
-    const existing = await productRepository.findByCanonicalDomain(domain);
-    if (existing && existing.status !== ProductStatus.DELETED) {
-      throw new ConflictError(
-        `A product with canonical domain '${domain}' has already been submitted`,
-        'DUPLICATE_RESOURCE'
-      );
-    }
-
-    // Generate unique scrape job identifier
-    const jobId = `job_scr_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-    // Perform live scrape and AI metadata synthesis
-    let draftMetadata: ScrapedProductMetadata | undefined;
-    try {
-      draftMetadata = await scrapeAndSynthesizeMetadata(normalizedUrl);
-    } catch (scrapeErr: any) {
-      logger.warn({ err: scrapeErr.message, url: normalizedUrl }, 'Scraper service error, will fallback to domain heuristics');
-    }
-
-    // Cache status in Redis so both immediate response and async polling succeed
-    try {
-      if (isRedisConnected()) {
-        await redis.setex(
-          `scraper:job:${jobId}`,
-          3600,
-          JSON.stringify({
-            status: 'COMPLETED',
-            jobId,
-            url: normalizedUrl,
-            userId,
-            data: draftMetadata,
-            createdAt: new Date().toISOString(),
-          })
-        );
-      }
-    } catch (redisErr) {
-      logger.warn({ redisErr, jobId }, 'Failed to set job state in Redis');
-    }
-
-    return {
-      jobId,
-      draft: draftMetadata,
-    };
-  }
-
-  /**
-   * 2. Poll status of a background scrape ingestion job
-   */
-  async getScrapeJobStatus(jobId: string, _userId: string): Promise<JobStatusResult> {
-    if (!jobId) {
-      throw new ValidationError('Job ID is required');
-    }
-
-    try {
-      if (isRedisConnected()) {
-        const cached = await redis.get(`scraper:job:${jobId}`);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          return {
-            status: parsed.status,
-            jobId,
-            productId: parsed.productId,
-            slug: parsed.slug,
-            data: parsed.data || parsed,
-            error: parsed.error,
-            code: parsed.code,
-          };
-        }
-      }
-    } catch (err) {
-      logger.warn({ err, jobId }, 'Error querying Redis scrape job status');
-    }
-
-    // Default to PENDING if not yet resolved
-    return {
-      status: 'PENDING',
-      jobId,
-    };
-  }
-
-  /**
-   * 3. Confirm draft product metadata and transition to PENDING_REVIEW
-   */
-  async confirmDraftProduct(
-    productId: string,
-    userId: string,
-    editedData: ProductDraftInput
-  ): Promise<IProduct> {
-    const product = await productRepository.findById(productId);
-    if (!product) {
-      throw new NotFoundError('Draft product was not found');
-    }
-
-    if (product.status !== ProductStatus.DRAFT) {
-      throw new ConflictError(
-        `Product cannot be confirmed because status is '${product.status}', expected 'DRAFT'`,
-        'CONFLICT'
-      );
-    }
-
-    if (product.submittedById && product.submittedById.toString() !== userId) {
-      throw new AuthorizationError(
-        'You do not have permission to confirm this draft product',
-        'FORBIDDEN'
-      );
-    }
-
-    // Auto-generate unique slug from edited name
-    const slug = await productRepository.generateSlug(editedData.name);
-
-    // Update product document
-    const updated = await productRepository.updateById(productId, {
-      name: editedData.name.trim(),
-      tagline: editedData.tagline.trim(),
-      description: editedData.description.trim(),
-      categoryId: new Types.ObjectId(editedData.categoryId),
-      pricing: editedData.pricing || product.pricing,
-      media: {
-        logoUrl: editedData.media?.logoUrl || product.media?.logoUrl || '',
-        bannerUrl: editedData.media?.bannerUrl || product.media?.bannerUrl || '',
-        screenshotUrls: editedData.media?.screenshotUrls || product.media?.screenshotUrls || [],
-      },
-      websiteUrl: editedData.websiteUrl || product.websiteUrl,
-      slug,
-      status: ProductStatus.PENDING_REVIEW,
-    });
-
-    if (!updated) {
-      throw new NotFoundError('Failed to confirm draft product');
-    }
-
-    // Create initial ProductRevision document (version 1)
-    await ProductRevision.create({
-      productId: updated._id,
-      editorId: new Types.ObjectId(userId),
-      versionNumber: 1,
-      snapshot: {
-        name: updated.name,
-        tagline: updated.tagline,
-        description: updated.description,
-        websiteUrl: updated.websiteUrl,
-        categoryId: updated.categoryId,
-        pricing: updated.pricing,
-        media: updated.media,
-      },
-      changeReason: 'Initial submission after draft confirmation',
-    });
-
-    // Log activity_event: PRODUCT_SUBMITTED
-    try {
-      await ActivityEvent.create({
-        userId: new Types.ObjectId(userId),
-        productId: updated._id,
-        eventType: 'PRODUCT_SUBMITTED',
-        eventSource: EventSource.ORGANIC,
-        metadata: {
-          slug: updated.slug,
-          name: updated.name,
-        },
-      });
-    } catch (eventErr) {
-      logger.error({ eventErr }, 'Failed to record PRODUCT_SUBMITTED activity event');
-    }
-
-    return updated;
-  }
-
-  /**
-   * 4. Retrieve public product detail by slug or ObjectId
-   */
-  async getProductBySlug(slugOrId: string): Promise<IProduct> {
-    let product: IProduct | null = null;
-
-    if (Types.ObjectId.isValid(slugOrId)) {
-      product = await productRepository.findById(slugOrId);
-    }
-    if (!product) {
-      product = await productRepository.findBySlug(slugOrId);
-    }
-
-    if (!product || product.status === ProductStatus.DELETED) {
-      throw new NotFoundError(`Product '${slugOrId}' not found`);
-    }
-
-    return product;
-  }
-
-  /**
-   * 5. Search directory products with pagination
-   */
-  async searchProducts(
-    params: ProductSearchParams
-  ): Promise<{ products: IProduct[]; total: number; page: number; limit: number }> {
-    const page = Math.max(1, Number(params.page) || 1);
-    const limit = Math.max(1, Math.min(Number(params.limit) || 25, 100));
+  async searchProducts(params: ProductSearchParams): Promise<{
+    products: IProduct[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.max(1, Math.min(params.limit || 25, 100));
 
     const { products, total } = await productRepository.search({
       ...params,
@@ -294,199 +62,27 @@ export class ProductService {
   }
 
   /**
-   * 6. Update product details (founder update) with revision snapshot tracking
+   * 2. Retrieve product by slug
    */
-  async updateProduct(
-    productId: string,
-    founderId: string,
-    updates: Partial<IProduct> & { changeReason?: string }
-  ): Promise<IProduct> {
-    const product = await productRepository.findById(productId);
-    if (!product) {
-      throw new NotFoundError('Product not found');
+  async getProductBySlug(slug: string): Promise<IProduct> {
+    if (!slug) {
+      throw new ValidationError('Product slug is required');
     }
 
-    // Verify user is verified founder of the product
-    if (!product.founderId || product.founderId.toString() !== founderId) {
-      throw new AuthorizationError(
-        'Only the verified founder can update this product',
-        'NOT_PRODUCT_FOUNDER'
-      );
-    }
-
-    // Save ProductRevision snapshot BEFORE applying changes
-    const latestRevision = await ProductRevision.findOne({ productId: product._id })
-      .sort({ versionNumber: -1 })
-      .lean();
-
-    const nextVersion = (latestRevision?.versionNumber || product.initialVersion || 1) + 1;
-
-    await ProductRevision.create({
-      productId: product._id,
-      editorId: new Types.ObjectId(founderId),
-      versionNumber: nextVersion,
-      snapshot: {
-        name: product.name,
-        tagline: product.tagline,
-        description: product.description,
-        websiteUrl: product.websiteUrl,
-        categoryId: product.categoryId,
-        pricing: product.pricing,
-        media: product.media,
-      },
-      changeReason: updates.changeReason || 'Product updated by founder',
-    });
-
-    // Remove changeReason from Mongoose document updates
-    const { changeReason, ...cleanUpdates } = updates;
-
-    const updated = await productRepository.updateById(productId, cleanUpdates);
-    if (!updated) {
-      throw new NotFoundError('Failed to apply product updates');
-    }
-
-    // Log activity_event: PRODUCT_UPDATED
-    try {
-      await ActivityEvent.create({
-        userId: new Types.ObjectId(founderId),
-        productId: product._id,
-        eventType: 'PRODUCT_UPDATED',
-        eventSource: EventSource.ORGANIC,
-        metadata: {
-          version: nextVersion,
-          updatedFields: Object.keys(cleanUpdates),
-        },
-      });
-    } catch (eventErr) {
-      logger.error({ eventErr }, 'Failed to record PRODUCT_UPDATED activity event');
-    }
-
-    return updated;
-  }
-
-  /**
-   * 7. Retrieve historical product revision audit logs
-   */
-  async getRevisionHistory(productId: string): Promise<IProductRevision[]> {
-    if (!Types.ObjectId.isValid(productId)) {
-      throw new ValidationError('Invalid product ID');
-    }
-
-    return ProductRevision.find({ productId: new Types.ObjectId(productId) })
-      .sort({ versionNumber: -1 })
-      .lean<IProductRevision[]>()
-      .exec();
-  }
-
-  /**
-   * 8. Soft delete product
-   */
-  async softDeleteProduct(productId: string, userId: string): Promise<void> {
-    const product = await productRepository.findById(productId);
-    if (!product) {
-      throw new NotFoundError('Product not found');
-    }
-
-    await productRepository.softDelete(productId, userId);
-
-    try {
-      await ActivityEvent.create({
-        userId: new Types.ObjectId(userId),
-        productId: product._id,
-        eventType: 'PRODUCT_DELETED',
-        eventSource: EventSource.INTERNAL,
-        metadata: { requestedBy: userId },
-      });
-    } catch (eventErr) {
-      logger.error({ eventErr }, 'Failed to record PRODUCT_DELETED activity event');
-    }
-  }
-
-  /**
-   * 9. Manual fallback product submission
-   */
-  async manualSubmitProduct(
-    data: ProductDraftInput,
-    userId: string
-  ): Promise<IProduct> {
-    if (!data.websiteUrl) {
-      throw new ValidationError('Website URL is required for manual submission');
-    }
-
-    const normalizedUrl = normalizeUrl(data.websiteUrl);
-    const domain = extractCanonicalDomain(normalizedUrl);
-
-    // Check duplicate domain
-    const existing = await productRepository.findByCanonicalDomain(domain);
-    if (existing && existing.status !== ProductStatus.DELETED) {
-      throw new ConflictError(
-        `A product with canonical domain '${domain}' already exists`,
-        'DUPLICATE_RESOURCE'
-      );
-    }
-
-    const slug = await productRepository.generateSlug(data.name);
-
-    const product = await productRepository.create({
-      name: data.name.trim(),
-      tagline: data.tagline.trim(),
-      description: data.description.trim(),
-      websiteUrl: normalizedUrl,
-      canonicalDomain: domain,
-      submittedById: new Types.ObjectId(userId),
-      categoryId: new Types.ObjectId(data.categoryId),
-      pricing: {
-        model: data.pricing?.model || 'freemium',
-        startingPrice: data.pricing?.startingPrice || 0,
-        currency: data.pricing?.currency || 'USD',
-      },
-      media: {
-        logoUrl: data.media?.logoUrl || '',
-        bannerUrl: data.media?.bannerUrl || '',
-        screenshotUrls: data.media?.screenshotUrls || [],
-      },
-      slug,
-      status: ProductStatus.PENDING_REVIEW,
-      initialVersion: 1,
-    });
-
-    // Create initial revision
-    await ProductRevision.create({
-      productId: product._id,
-      editorId: new Types.ObjectId(userId),
-      versionNumber: 1,
-      snapshot: {
-        name: product.name,
-        tagline: product.tagline,
-        description: product.description,
-        websiteUrl: product.websiteUrl,
-        categoryId: product.categoryId,
-        pricing: product.pricing,
-        media: product.media,
-      },
-      changeReason: 'Manual product submission',
-    });
-
-    // Log activity_event
-    try {
-      await ActivityEvent.create({
-        userId: new Types.ObjectId(userId),
-        productId: product._id,
-        eventType: 'PRODUCT_SUBMITTED',
-        eventSource: EventSource.ORGANIC,
-        metadata: { slug: product.slug, name: product.name, manual: true },
-      });
-    } catch (eventErr) {
-      logger.error({ eventErr }, 'Failed to record PRODUCT_SUBMITTED activity event');
+    const product = await productRepository.findBySlug(slug);
+    if (!product || product.status === ProductStatus.DELETED) {
+      throw new NotFoundError(`Product '${slug}' not found`);
     }
 
     return product;
   }
 
   /**
-   * 10. Public Accountless Product Submission & Rank Entry
-   * Normalizes canonical domain, detects repeat submissions vs initial entries,
-   * creates or reuses permanent product, and generates MoR Pay-to-Rank checkout.
+   * 3. Public Accountless Product Submission & Pay-to-Rank entry point.
+   * Anonymous product submission: public POST, zod validated, rate limited per IP using req.ip.
+   * New products enter in status DRAFT.
+   * SUSPENDED, REJECTED, DELETED and ARCHIVED products must never become LIVE through a payment,
+   * and rank-checkout must reject those statuses.
    */
   async publicAccountlessSubmit(data: {
     name: string;
@@ -509,8 +105,11 @@ export class ProductService {
     formattedAmount: string;
     contributionType: 'INITIAL_ENTRY' | 'DAILY';
   }> {
-    if (!data.websiteUrl) {
-      throw new ValidationError('Website URL is required');
+    if (!data.websiteUrl || !isSafeUrl(data.websiteUrl)) {
+      throw new ValidationError('Website URL must have a valid protocol (http: or https:) and not exceed 2048 characters');
+    }
+    if (data.logoUrl && !isSafeUrl(data.logoUrl)) {
+      throw new ValidationError('Logo URL must have a valid protocol (http: or https:) and not exceed 2048 characters');
     }
     if (!data.name || data.name.trim().length < 2) {
       throw new ValidationError('Product name must be at least 2 characters');
@@ -526,8 +125,20 @@ export class ProductService {
     // Check if product with this canonical domain already exists in the permanent directory
     const existing = await productRepository.findByCanonicalDomain(domain);
 
-    if (existing && existing.status !== ProductStatus.DELETED) {
-      // Repeat submission for an existing permanent product: register daily participation
+    if (existing) {
+      const disallowedStatuses = [
+        ProductStatus.SUSPENDED,
+        ProductStatus.REJECTED,
+        ProductStatus.DELETED,
+        ProductStatus.ARCHIVED,
+      ];
+      if (disallowedStatuses.includes(existing.status)) {
+        throw new ValidationError(`Product '${domain}' is in status '${existing.status}' and cannot receive ranking payments`, [
+          { field: 'websiteUrl', code: 'INVALID_STATUS', message: `Cannot submit or checkout for product in status ${existing.status}` },
+        ]);
+      }
+
+      // Repeat submission for an existing product: register daily participation
       const amountToPay = Math.max(
         rules.minIncrementCents,
         data.initialPaymentCents || rules.minIncrementCents
@@ -554,7 +165,7 @@ export class ProductService {
       };
     }
 
-    // Initial Submission: create new permanent product (unranked until payment confirmation)
+    // Initial Submission: create new product in status DRAFT
     const slug = await productRepository.generateSlug(data.name);
 
     const product = await productRepository.create({
@@ -597,7 +208,7 @@ export class ProductService {
       cancelUrl: data.cancelUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/?status=cancelled`,
     });
 
-    return {
+      return {
       product,
       isExistingProduct: false,
       checkoutUrl: checkout.checkoutUrl,
@@ -605,6 +216,238 @@ export class ProductService {
       amountCents: amountToPay,
       formattedAmount: checkout.formattedAmount,
       contributionType: 'INITIAL_ENTRY',
+    };
+  }
+
+  /**
+   * 4. Fast Domain & URL Preview for Claim Rank Hero
+   * Automatically extracts favicon logo, metadata, checks existing status,
+   * and computes live rank simulations.
+   */
+  async previewDomain(inputUrl: string): Promise<any> {
+    if (!inputUrl || typeof inputUrl !== 'string') {
+      throw new ValidationError('A website URL or domain is required');
+    }
+
+    const cleanInput = inputUrl.trim().replace(/^@/, '');
+    const domain = extractCanonicalDomain(cleanInput);
+    const normalizedUrl = normalizeUrl(cleanInput);
+
+    const categories = await Category.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
+    const defaultCategory = categories[0] || null;
+
+    // Check if domain exists in database
+    const existing = await Product.findOne({ canonicalDomain: domain })
+      .populate('categoryId')
+      .lean();
+
+    let name = '';
+    let tagline = '';
+    let description = '';
+    let logoUrl = '';
+    let categoryId = defaultCategory?._id?.toString() || '';
+    let categoryName = defaultCategory?.name || 'General';
+    let categorySlug = defaultCategory?.slug || 'general';
+
+    if (existing) {
+      name = existing.name;
+      tagline = existing.tagline;
+      description = existing.description;
+      logoUrl = existing.media?.logoUrl || `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+      const cat = existing.categoryId as any;
+      if (cat && cat._id) {
+        categoryId = cat._id.toString();
+        categoryName = cat.name || categoryName;
+        categorySlug = cat.slug || categorySlug;
+      }
+    } else {
+      // Scrape web metadata
+      try {
+        const scraped = await scrapeAndSynthesizeMetadata(normalizedUrl);
+        name = scraped.name;
+        tagline = scraped.tagline;
+        description = scraped.description;
+        logoUrl = scraped.logoUrl || `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+        if (scraped.suggestedCategorySlug) {
+          const matchedCat = categories.find((c) => c.slug === scraped.suggestedCategorySlug);
+          if (matchedCat) {
+            categoryId = matchedCat._id.toString();
+            categoryName = matchedCat.name;
+            categorySlug = matchedCat.slug;
+          }
+        }
+      } catch {
+        const domainName = domain.split('.')[0];
+        name = domainName.charAt(0).toUpperCase() + domainName.slice(1);
+        tagline = `The modern platform for ${domain}`;
+        description = `${name} provides streamlined tools and solutions for users.`;
+        logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+      }
+    }
+
+    const catObjId = Types.ObjectId.isValid(categoryId) ? new Types.ObjectId(categoryId) : null;
+
+    // Dynamic calculations:
+    const testSpendCents = (existing?.paidRankingAmountCents || 0) + 1000; // +$10 simulation
+
+    const [
+      higherAllTime,
+      higherCat,
+      totalAllTime,
+      totalCategory,
+      overallTop,
+      categoryTop,
+      todayTop
+    ] = await Promise.all([
+      Product.countDocuments({ status: ProductStatus.LIVE, paidRankingAmountCents: { $gt: testSpendCents } }),
+      catObjId ? Product.countDocuments({ status: ProductStatus.LIVE, categoryId: catObjId, paidRankingAmountCents: { $gt: testSpendCents } }) : Promise.resolve(0),
+      Product.countDocuments({ status: ProductStatus.LIVE }),
+      catObjId ? Product.countDocuments({ status: ProductStatus.LIVE, categoryId: catObjId }) : Promise.resolve(0),
+      Product.findOne({ status: ProductStatus.LIVE }).sort({ paidRankingAmountCents: -1 }).lean(),
+      catObjId ? Product.findOne({ status: ProductStatus.LIVE, categoryId: catObjId }).sort({ paidRankingAmountCents: -1 }).lean() : Promise.resolve(null),
+      Product.findOne({ status: ProductStatus.LIVE, todayPaidDate: new Date().toISOString().split('T')[0], todayPaidAmountCents: { $gt: 0 } }).sort({ todayPaidAmountCents: -1 }).lean(),
+    ]);
+
+    const allTimeTopBidDollars = Math.round((overallTop?.paidRankingAmountCents || 0) / 100);
+    const categoryTopBidDollars = Math.round((categoryTop?.paidRankingAmountCents || 0) / 100);
+    const todayTopBidDollars = Math.round((todayTop?.todayPaidAmountCents || 0) / 100);
+
+    return {
+      domain,
+      websiteUrl: normalizedUrl,
+      name,
+      tagline,
+      description,
+      logoUrl,
+      categoryId,
+      categoryName,
+      categorySlug,
+      categories: categories.map((c) => ({ id: c._id.toString(), name: c.name, slug: c.slug })),
+      isExisting: Boolean(existing),
+      existingProductId: existing?._id?.toString() || null,
+      existingSlug: existing?.slug || null,
+      existingPaidAmountCents: existing?.paidRankingAmountCents || 0,
+      allTimeEstimatedRank: higherAllTime + 1,
+      categoryEstimatedRank: higherCat + 1,
+      totalAllTimeProducts: totalAllTime,
+      totalCategoryProducts: totalCategory,
+      categoryTopBidDollars,
+      categoryOutbidCostDollars: Math.max(10, categoryTopBidDollars + 1),
+      todayTopBidDollars,
+      todayOutbidCostDollars: Math.max(10, todayTopBidDollars + 1),
+      allTimeTopBidDollars,
+      allTimeOutbidCostDollars: Math.max(10, allTimeTopBidDollars + 1),
+    };
+  }
+
+  /**
+   * 5. Comprehensive Product Detail for Public Product Page
+   * Returns ranking positions (category & overall), transparent stats, outbid calculators,
+   * and related competing products in the same category.
+   */
+  async getProductDetailsBySlug(slug: string): Promise<any> {
+    if (!slug) {
+      throw new ValidationError('Product slug is required');
+    }
+
+    const product = await productRepository.findBySlug(slug);
+    if (!product || product.status === ProductStatus.DELETED) {
+      throw new NotFoundError(`Product '${slug}' not found`);
+    }
+
+    const catId = (product.categoryId as any)?._id || product.categoryId;
+    const currentPaidCents = product.paidRankingAmountCents || 0;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const [
+      higherOverall,
+      totalOverall,
+      higherCategory,
+      totalCategory,
+      categoryTopProduct,
+      overallTopProduct,
+      clickCount,
+      raisedCount,
+      relatedProductsRaw
+    ] = await Promise.all([
+      Product.countDocuments({
+        status: ProductStatus.LIVE,
+        $or: [
+          { paidRankingAmountCents: { $gt: currentPaidCents } },
+          { paidRankingAmountCents: currentPaidCents, firstPaidAt: { $lt: product.firstPaidAt || product.createdAt } }
+        ]
+      }),
+      Product.countDocuments({ status: ProductStatus.LIVE }),
+      catId ? Product.countDocuments({
+        status: ProductStatus.LIVE,
+        categoryId: catId,
+        $or: [
+          { paidRankingAmountCents: { $gt: currentPaidCents } },
+          { paidRankingAmountCents: currentPaidCents, firstPaidAt: { $lt: product.firstPaidAt || product.createdAt } }
+        ]
+      }) : Promise.resolve(0),
+      catId ? Product.countDocuments({ status: ProductStatus.LIVE, categoryId: catId }) : Promise.resolve(0),
+      catId ? Product.findOne({ status: ProductStatus.LIVE, categoryId: catId }).sort({ paidRankingAmountCents: -1, firstPaidAt: 1 }).lean() : Promise.resolve(null),
+      Product.findOne({ status: ProductStatus.LIVE }).sort({ paidRankingAmountCents: -1, firstPaidAt: 1 }).lean(),
+      ActivityEvent.countDocuments({ productId: product._id, eventType: 'OUTBOUND_CLICK' }),
+      RankingLedger.countDocuments({ productId: product._id, status: 'APPLIED' }),
+      catId ? Product.find({ status: ProductStatus.LIVE, categoryId: catId, _id: { $ne: product._id } })
+        .sort({ paidRankingAmountCents: -1, firstPaidAt: 1 })
+        .limit(5)
+        .lean() : Promise.resolve([]),
+    ]);
+
+    const categoryRank = higherCategory + 1;
+    const overallRank = higherOverall + 1;
+
+    // Check if ranked today
+    let todayRank: number | null = null;
+    if (product.todayPaidDate === todayStr && (product.todayPaidAmountCents || 0) > 0) {
+      const higherToday = await Product.countDocuments({
+        status: ProductStatus.LIVE,
+        todayPaidDate: todayStr,
+        todayPaidAmountCents: { $gt: product.todayPaidAmountCents }
+      });
+      todayRank = higherToday + 1;
+    }
+
+    const categoryTopSpendDollars = Math.round((categoryTopProduct?.paidRankingAmountCents || 0) / 100);
+    const overallTopSpendDollars = Math.round((overallTopProduct?.paidRankingAmountCents || 0) / 100);
+    const outbidCostToBeatCategoryTop = Math.max(10, categoryTopSpendDollars + 1);
+    const outbidCostToBeatOverallTop = Math.max(10, overallTopSpendDollars + 1);
+
+    // Format top 5 related products with their rank
+    const relatedProducts = relatedProductsRaw.map((p, idx) => ({
+      _id: p._id.toString(),
+      id: p._id.toString(),
+      name: p.name,
+      slug: p.slug,
+      tagline: p.tagline,
+      logoUrl: p.media?.logoUrl || `https://www.google.com/s2/favicons?domain=${p.canonicalDomain}&sz=128`,
+      canonicalDomain: p.canonicalDomain,
+      websiteUrl: p.websiteUrl,
+      paidRankingAmountCents: p.paidRankingAmountCents || 0,
+      formattedAmount: `$${Math.round((p.paidRankingAmountCents || 0) / 100).toLocaleString()}`,
+      categoryRank: idx + (categoryRank <= idx + 1 ? 2 : 1),
+    }));
+
+    return {
+      product,
+      stats: {
+        categoryRank,
+        categoryTotal: totalCategory,
+        overallRank,
+        overallTotal: totalOverall,
+        clicksCount: clickCount || 0,
+        raisedCount: Math.max(1, raisedCount),
+        hasRankedToday: todayRank !== null,
+        todayRank,
+        categoryTopSpendDollars,
+        overallTopSpendDollars,
+        outbidCostToBeatCategoryTop,
+        outbidCostToBeatOverallTop,
+      },
+      relatedProducts,
     };
   }
 }

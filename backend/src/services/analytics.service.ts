@@ -6,9 +6,10 @@ import { ActivityEvent } from '../models/ActivityEvent.model';
 import { EventSource, ProductStatus, PaymentStatus } from '../shared/constants';
 import { clickEventsQueue, sponsoredClickEventsQueue } from '../shared/click-queue';
 import { hashTelemetry } from './fraud.service';
-import { NotFoundError, AuthorizationError } from '../shared/errors';
+import { NotFoundError } from '../shared/errors';
 import { redis, isRedisConnected } from '../shared/redis';
 import { logger } from '../shared/logger';
+import { getClientIp } from '../middleware/rate-limit.middleware';
 
 export interface ClickMetadata {
   ip: string;
@@ -17,36 +18,23 @@ export interface ClickMetadata {
   utmSource?: string;
 }
 
-export interface DailyMetricItem {
-  date: string;
-  impressions: number;
-  organicClicks: number;
-  sponsoredClicks: number;
-  votes: number;
-}
-
-export interface ReferrerMetricItem {
-  referrer: string;
-  count: number;
-}
-
-export interface AnalyticsSummary {
-  totalImpressions: number;
-  totalOrganicClicks: number;
-  totalSponsoredClicks: number;
-  organicCtr: number;
-  totalValidVotes: number;
-}
-
-export interface AnalyticsData {
-  productId: string;
-  summary: AnalyticsSummary;
-  dailyMetrics: DailyMetricItem[];
-  referrerBreakdown: ReferrerMetricItem[];
-}
-
 // In-memory deduplication fallback when Redis is offline (local development)
 const inMemoryDedupStore = new Map<string, number>();
+
+export function appendUtmSource(targetUrl: string, defaultSource: string = 'launchproduct'): string {
+  try {
+    const raw = targetUrl.startsWith('http://') || targetUrl.startsWith('https://')
+      ? targetUrl
+      : `https://${targetUrl}`;
+    const parsed = new URL(raw);
+    if (!parsed.searchParams.has('utm_source')) {
+      parsed.searchParams.set('utm_source', defaultSource);
+    }
+    return parsed.toString();
+  } catch {
+    return targetUrl;
+  }
+}
 
 export class AnalyticsService {
   private botUserAgentRegex =
@@ -79,22 +67,20 @@ export class AnalyticsService {
           productStatus = parsed.status;
         }
       } catch (cacheErr: any) {
-        logger.warn({ err: cacheErr.message }, 'Redis product cache read error');
+        logger.warn({ err: cacheErr.message, productId }, 'Redis read failure in fast redirect path');
       }
     }
 
-    // Database Fallback: Read product from MongoDB
-    if (!destinationUrl || !productStatus) {
-      const product = await Product.findById(productId).select('websiteUrl status name').lean();
-      if (!product || product.status === ProductStatus.DELETED) {
+    // Cache Miss: Query MongoDB directly and warm the Redis cache
+    if (!destinationUrl) {
+      const product = await Product.findById(productId, { websiteUrl: 1, status: 1 }).lean();
+      if (!product) {
         throw new NotFoundError(`Product '${productId}' not found`);
       }
-
       destinationUrl = product.websiteUrl;
       productStatus = product.status;
 
-      // Populate Redis hot-cache
-      if (isRedisConnected() && destinationUrl) {
+      if (isRedisConnected()) {
         try {
           await redis.set(
             cacheKey,
@@ -103,43 +89,35 @@ export class AnalyticsService {
             300
           );
         } catch {
-          // Ignore cache set error
+          // Ignore cache warm failure
         }
       }
     }
 
-    if (productStatus !== ProductStatus.LIVE) {
-      throw new NotFoundError(`Product '${productId}' is not live (status: ${productStatus})`);
+    if (productStatus === ProductStatus.DELETED || productStatus === ProductStatus.SUSPENDED) {
+      throw new NotFoundError(`Product '${productId}' is not available`);
     }
 
-    // Classify source: Bot User-Agents are strictly identified and forced to 'BOT'
-    const isBot = this.botUserAgentRegex.test(clientMetadata.userAgent || '');
-    let source: 'ORGANIC' | 'SPONSORED' | 'BOT';
-    if (isBot) {
-      source = 'BOT';
-    } else if (rawSource.toLowerCase() === 'sponsored') {
-      source = 'SPONSORED';
-    } else {
-      source = 'ORGANIC';
-    }
+    // Bot Filter: Detect and tag automated scrapers
+    const isBot = clientMetadata.userAgent
+      ? this.botUserAgentRegex.test(clientMetadata.userAgent)
+      : false;
 
-    // Compute session hash: HMAC-SHA256(ip + userAgent)
-    const sessionPayload = `${clientMetadata.ip}:${clientMetadata.userAgent || ''}`;
-    const sessionHash = hashTelemetry(sessionPayload);
+    const source = isBot ? 'BOT' : rawSource.toUpperCase() === 'SPONSORED' ? 'SPONSORED' : 'ORGANIC';
 
-    // Redis Deduplication: 10-minute session window (600s TTL)
+    // Click Deduplication via Redis TTL Key (10-minute sliding window)
+    const sessionHash = hashTelemetry(`${clientMetadata.ip}:${clientMetadata.userAgent || ''}`);
     const dedupKey = `click:dedup:${productId}:${sessionHash}`;
     let isDuplicate = false;
 
     if (isRedisConnected()) {
       try {
-        const setResult = await redis.set(dedupKey, '1', 'EX', 600, 'NX');
-        isDuplicate = setResult !== 'OK';
-      } catch (dedupErr: any) {
-        logger.warn({ err: dedupErr.message }, 'Redis click deduplication error');
+        const setOk = await redis.set(dedupKey, '1', 'EX', 10 * 60, 'NX');
+        isDuplicate = setOk === null;
+      } catch {
+        isDuplicate = false;
       }
     } else {
-      // In-memory deduplication fallback
       const now = Date.now();
       const existing = inMemoryDedupStore.get(dedupKey);
       if (existing && existing > now) {
@@ -149,14 +127,11 @@ export class AnalyticsService {
       }
     }
 
-    // =========================================================================
     // ASYNCHRONOUS FIRE-AND-FORGET TELEMETRY DISPATCH (NEVER BLOCKS REDIRECT!)
-    // =========================================================================
     setImmediate(async () => {
       try {
         const timestamp = new Date().toISOString();
 
-        // 1. Organic clicks: Enqueue to 'click-events' queue for ranking calculations
         if (!isDuplicate && source === 'ORGANIC') {
           await clickEventsQueue.add('process-click', {
             productId,
@@ -168,7 +143,6 @@ export class AnalyticsService {
           });
         }
 
-        // 2. Sponsored clicks: Enqueue to 'sponsored-click-events' for campaign analytics ONLY
         if (source === 'SPONSORED') {
           await sponsoredClickEventsQueue.add('process-sponsored-click', {
             productId,
@@ -181,7 +155,6 @@ export class AnalyticsService {
           });
         }
 
-        // 3. Activity Event Log
         let eventSource = EventSource.ORGANIC;
         if (source === 'SPONSORED') eventSource = EventSource.SPONSORED;
         if (source === 'BOT') eventSource = EventSource.BOT;
@@ -203,168 +176,27 @@ export class AnalyticsService {
       }
     });
 
-    return { destinationUrl };
+    const finalUrl = appendUtmSource(destinationUrl, 'launchproduct');
+    return { destinationUrl: finalUrl };
   }
 
   /**
-   * 2. Retrieve aggregated founder analytics over the last N days
+   * Helper method for express controller click handling
    */
-  async getFounderAnalytics(
+  async recordClickAndGetRedirect(
     productId: string,
-    founderId: string,
-    days: number = 30
-  ): Promise<AnalyticsData> {
-    if (!Types.ObjectId.isValid(productId)) {
-      throw new NotFoundError(`Invalid product ID '${productId}'`);
-    }
-
-    const product = await Product.findById(productId);
-    if (!product || product.status === ProductStatus.DELETED) {
-      throw new NotFoundError(`Product '${productId}' not found`);
-    }
-
-    // Assert founder/submitter ownership
-    const isOwner =
-      (product.founderId && product.founderId.toString() === founderId) ||
-      (product.submittedById && product.submittedById.toString() === founderId);
-    if (!isOwner) {
-      throw new AuthorizationError(
-        'You do not have administrative permission to view analytics for this product',
-        'FORBIDDEN'
-      );
-    }
-
-    const clampedDays = Math.max(1, Math.min(days, 90));
-    const since = new Date(Date.now() - clampedDays * 24 * 60 * 60 * 1000);
-
-    // MongoDB Aggregation Pipeline on ActivityEvent
-    const matchStage = {
-      $match: {
-        productId: product._id,
-        createdAt: { $gte: since },
-      },
+    isSponsored: boolean,
+    req: any
+  ): Promise<string> {
+    const rawSource = isSponsored ? 'sponsored' : 'organic';
+    const clientMetadata: ClickMetadata = {
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] as string | undefined,
+      referrer: req.headers['referer'] as string | undefined,
+      utmSource: (req.query?.utm_source as string) || undefined,
     };
-
-    const dailyFacet = [
-      {
-        $group: {
-          _id: {
-            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-          },
-          organicClicks: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: ['$eventType', 'OUTBOUND_CLICK'] },
-                    { $eq: ['$eventSource', 'ORGANIC'] },
-                    { $ne: ['$metadata.isDuplicate', true] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          sponsoredClicks: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: ['$eventType', 'OUTBOUND_CLICK'] },
-                    { $eq: ['$eventSource', 'SPONSORED'] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          votes: {
-            $sum: {
-              $cond: [{ $eq: ['$eventType', 'VOTE_CAST'] }, 1, 0],
-            },
-          },
-          impressions: {
-            $sum: {
-              $cond: [{ $eq: ['$eventType', 'PRODUCT_VIEW'] }, 1, 0],
-            },
-          },
-        },
-      },
-      { $sort: { _id: 1 as const } },
-    ];
-
-    const referrerFacet = [
-      {
-        $match: {
-          eventType: 'OUTBOUND_CLICK',
-        },
-      },
-      {
-        $group: {
-          _id: { $ifNull: ['$metadata.referrer', 'direct'] },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { count: -1 as const } },
-      { $limit: 10 },
-    ];
-
-    const [results] = await ActivityEvent.aggregate([
-      matchStage,
-      {
-        $facet: {
-          daily: dailyFacet as any,
-          referrers: referrerFacet as any,
-        },
-      } as any,
-    ]);
-
-    const dailyMetrics: DailyMetricItem[] = (results?.daily || []).map((item: any) => ({
-      date: item._id,
-      impressions: item.impressions || 0,
-      organicClicks: item.organicClicks || 0,
-      sponsoredClicks: item.sponsoredClicks || 0,
-      votes: item.votes || 0,
-    }));
-
-    const referrerBreakdown: ReferrerMetricItem[] = (results?.referrers || []).map((item: any) => ({
-      referrer: item._id,
-      count: item.count,
-    }));
-
-    // Calculate totals
-    let totalImpressions = 0;
-    let totalOrganicClicks = 0;
-    let totalSponsoredClicks = 0;
-    let totalValidVotes = 0;
-
-    for (const d of dailyMetrics) {
-      totalImpressions += d.impressions;
-      totalOrganicClicks += d.organicClicks;
-      totalSponsoredClicks += d.sponsoredClicks;
-      totalValidVotes += d.votes;
-    }
-
-    // Default impression count to at least clicks to prevent invalid CTR if view tracking is emerging
-    const effectiveImpressions = Math.max(totalImpressions, totalOrganicClicks);
-    const organicCtr = effectiveImpressions > 0
-      ? Math.round((totalOrganicClicks / effectiveImpressions) * 10000) / 10000
-      : 0;
-
-    return {
-      productId: product._id.toString(),
-      summary: {
-        totalImpressions: effectiveImpressions,
-        totalOrganicClicks,
-        totalSponsoredClicks,
-        organicCtr,
-        totalValidVotes,
-      },
-      dailyMetrics,
-      referrerBreakdown,
-    };
+    const { destinationUrl } = await this.processOutboundClick(productId, rawSource, clientMetadata);
+    return destinationUrl;
   }
 
   /**
@@ -417,7 +249,6 @@ export class AnalyticsService {
     paidRankingVolumeFormatted: string;
     productsListed: number;
   }> {
-    // 1. Get visitors (defaults to 0)
     let visitors = 0;
     try {
       const record = await SystemSettings.findOne({ key: 'site_visitor_counter' }).lean();
@@ -426,7 +257,6 @@ export class AnalyticsService {
       logger.warn({ err: err.message }, 'Error retrieving visitor counter');
     }
 
-    // 2. Aggregate confirmed paid ranking volume (defaults to 0)
     let paidRankingVolumeCents = 0;
     try {
       const rankingAgg = await Payment.aggregate([
@@ -448,14 +278,12 @@ export class AnalyticsService {
       logger.warn({ err: err.message }, 'Error aggregating paid ranking volume');
     }
 
-    // 3. Count products listed (defaults to 0)
     let productsListed = 0;
     try {
       productsListed = await Product.countDocuments({
         status: ProductStatus.LIVE,
         paidRankingAmountCents: { $gt: 0 },
       });
-      // Fallback if no paid products yet: count all live products
       if (productsListed === 0) {
         productsListed = await Product.countDocuments({
           status: ProductStatus.LIVE,
@@ -480,3 +308,4 @@ export class AnalyticsService {
 }
 
 export const analyticsService = new AnalyticsService();
+export default analyticsService;

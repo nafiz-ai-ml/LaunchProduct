@@ -8,7 +8,7 @@ const rawBodyParser = express.raw({ type: 'application/json', limit: '2mb' });
 
 /**
  * 1. POST /api/v1/webhooks/payment/:provider
- * Inbound Merchant of Record Webhook (Paddle, Lemon Squeezy)
+ * Inbound Merchant of Record Webhook (Paddle)
  * Protected by provider cryptographic HMAC-SHA256 signature verification.
  */
 router.post(

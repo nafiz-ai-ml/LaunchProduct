@@ -1,7 +1,10 @@
 /**
  * LaunchProduct Domain Services Layer
- * Pure business logic, state machines, anti-fraud evaluations, and ranking calculations.
  */
 
-export * from './auth.service';
 export * from './product.service';
+export * from './payment.service';
+export * from './ranking.service';
+export * from './analytics.service';
+export * from './fraud.service';
+export * from './scraper.service';

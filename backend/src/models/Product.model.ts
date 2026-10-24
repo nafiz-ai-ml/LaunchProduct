@@ -23,8 +23,6 @@ export interface IProduct {
   tagline: string;
   description: string;
   websiteUrl: string;
-  founderId?: Types.ObjectId;
-  submittedById?: Types.ObjectId;
   contactEmail?: string;
   categoryId: Types.ObjectId;
   pricing: IProductPricing;
@@ -132,17 +130,6 @@ const ProductSchema = new Schema<IProduct>(
       trim: true,
       maxlength: [2048, 'Website URL cannot exceed 2048 characters'],
     },
-    founderId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
-    submittedById: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-      required: false,
-    },
     contactEmail: {
       type: String,
       trim: true,
@@ -245,12 +232,6 @@ ProductSchema.index({ status: 1, todayPaidAmountCents: -1, lastPaidAt: 1 });
 
 // 2.3 Pay-to-Rank Category Leaderboard compound index
 ProductSchema.index({ categoryId: 1, status: 1, paidRankingAmountCents: -1, firstPaidAt: 1 });
-
-// 3. Compound index: founder dashboard queries
-ProductSchema.index({ founderId: 1, status: 1 });
-
-// 4. Compound index: user submissions history
-ProductSchema.index({ submittedById: 1, createdAt: -1 });
 
 // 5. Unique index: slug
 ProductSchema.index({ slug: 1 }, { unique: true });
