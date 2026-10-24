@@ -54,22 +54,22 @@ interface LeaderboardItem {
 }
 
 const CATEGORIES = [
-  { name: 'All', slug: 'all' },
+  { name: 'All Launches', slug: 'all' },
   { name: 'AI Tools', slug: 'ai-tools' },
   { name: 'AI Agents', slug: 'ai-agents' },
   { name: 'SaaS', slug: 'saas' },
   { name: 'Developer Tools', slug: 'developer-tools' },
   { name: 'Productivity', slug: 'productivity' },
-  { name: 'Marketing', slug: 'marketing-tools' },
-  { name: 'SEO', slug: 'seo-tools' },
-  { name: 'Design', slug: 'design-tools' },
+  { name: 'Marketing Tools', slug: 'marketing-tools' },
+  { name: 'SEO Tools', slug: 'seo-tools' },
+  { name: 'Design Tools', slug: 'design-tools' },
 ];
 
 export default function HomePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const tabParam = (searchParams?.get('tab') as BoardTab) || 'all-time'; // Outbid default is All-time!
+  const tabParam = (searchParams?.get('tab') as BoardTab) || 'all-time'; // Default tab is All-time
   const categoryParam = searchParams?.get('category') || 'all';
   const pageParam = Math.max(1, parseInt(searchParams?.get('page') || '1', 10));
 
@@ -159,7 +159,7 @@ export default function HomePage() {
       const res = await apiClient.get(endpoint, {
         params: {
           page: currentPage,
-          limit: 50, // 50 items per page as requested
+          limit: 50, // 50 items per page
         },
       });
 
@@ -267,7 +267,7 @@ export default function HomePage() {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-6 space-y-6 min-w-0">
-      {/* 1. Category Pills Bar (Top Level) */}
+      {/* 1. Category Navigation Pills */}
       <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-none w-full max-w-full justify-start sm:justify-center">
         {CATEGORIES.map((cat) => {
           const isSelected = selectedCategory === cat.slug;
@@ -275,10 +275,10 @@ export default function HomePage() {
             <button
               key={cat.slug}
               onClick={() => handleCategoryChange(cat.slug)}
-              className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+              className={`px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                 isSelected
-                  ? 'bg-[#e06653] text-white shadow-xs'
-                  : 'bg-surface hover:bg-surface-sunken text-text-secondary hover:text-text-primary border border-border'
+                  ? 'bg-primary text-white shadow-sm shadow-primary/30 font-bold'
+                  : 'bg-surface hover:bg-surface-sunken text-text-secondary hover:text-text-primary border border-border hover:border-primary/40'
               }`}
             >
               {cat.name}
@@ -292,9 +292,9 @@ export default function HomePage() {
         <div className="inline-flex items-center p-1 bg-surface border border-border rounded-full shadow-xs">
           <button
             onClick={() => handleTabChange('all-time')}
-            className={`px-4 sm:px-5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            className={`px-5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeBoard === 'all-time'
-                ? 'bg-[#e06653] text-white shadow-xs'
+                ? 'bg-primary text-white shadow-xs'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -302,9 +302,9 @@ export default function HomePage() {
           </button>
           <button
             onClick={() => handleTabChange('today')}
-            className={`px-4 sm:px-5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeBoard === 'today'
-                ? 'bg-[#e06653] text-white shadow-xs'
+                ? 'bg-primary text-white shadow-xs'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -349,7 +349,7 @@ export default function HomePage() {
             </div>
           ) : mainItems.length === 0 ? (
             <div className="rounded-2xl border-2 border-dashed border-border p-12 text-center space-y-3 bg-surface">
-              <Zap className="w-8 h-8 text-[#e06653] mx-auto animate-bounce" />
+              <Zap className="w-8 h-8 text-primary mx-auto animate-bounce" />
               <h3 className="text-base font-bold text-text-primary">
                 {activeBoard === 'today'
                   ? 'Nobody has claimed a rank since midnight UTC.'
@@ -410,8 +410,8 @@ export default function HomePage() {
                     onClick={() => handlePageChange(pageNumber)}
                     className={`w-9 h-9 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-[#e06653] text-white shadow-xs'
-                        : 'bg-surface hover:bg-surface-sunken text-text-secondary hover:text-text-primary border border-border'
+                        ? 'bg-primary text-white shadow-xs'
+                        : 'bg-surface hover:bg-surface-sunken text-text-secondary hover:text-text-primary border border-border hover:border-primary/40'
                     }`}
                   >
                     {pageNumber}
@@ -445,11 +445,11 @@ export default function HomePage() {
 
         {/* Right Sidebar Snapshot Column (~30% width, cols 9 to 12) */}
         <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-20">
-          <div className="rounded-2xl bg-surface border border-border p-4 sm:p-5 shadow-xs space-y-3.5">
+          <div className="rounded-2xl bg-surface border border-border p-4 sm:p-5 shadow-card space-y-3.5">
             {/* Sidebar Header */}
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-[#e06653]" />
+                <Trophy className="w-4 h-4 text-primary" />
                 <h3 className="font-extrabold text-sm text-text-primary">
                   {activeBoard === 'all-time' ? "Today's ranking" : 'All-time ranking'}
                 </h3>
@@ -457,7 +457,7 @@ export default function HomePage() {
 
               <button
                 onClick={() => handleTabChange(activeBoard === 'all-time' ? 'today' : 'all-time')}
-                className="text-xs font-bold text-[#e06653] hover:underline flex items-center gap-0.5 cursor-pointer"
+                className="text-xs font-bold text-primary hover:text-primary-hover hover:underline flex items-center gap-0.5 cursor-pointer"
               >
                 <span>See all</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -474,7 +474,7 @@ export default function HomePage() {
             ) : sidebarItems.length === 0 ? (
               <div className="py-6 text-center text-xs text-text-muted space-y-2">
                 <p>Nobody has claimed a rank since midnight UTC.</p>
-                <p className="font-semibold text-text-secondary">
+                <p className="font-semibold text-primary">
                   Pay $10 to take today’s #1.
                 </p>
               </div>
@@ -504,15 +504,15 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 6. Live Platform Statistics Footer Bar (Matching Outbid stats row) */}
+      {/* 6. Live Platform Statistics Footer Bar (LaunchProduct Orange theme) */}
       <div className="pt-10 pb-6 text-center space-y-4">
         <p className="text-xs text-text-muted">
-          Some stats about this <span className="font-bold text-[#e06653]">simple side project</span> since its launch
+          Platform transparency metrics since inception
         </p>
 
         <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* Visitors */}
-          <div className="rounded-2xl bg-surface border border-border p-4 shadow-xs">
+          <div className="rounded-2xl bg-surface border border-border p-4 shadow-card hover:border-primary/40 transition-colors">
             <div className="flex items-center justify-center gap-1.5 text-base sm:text-xl font-black font-mono text-text-primary">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               <span>{publicStats.visitors.toLocaleString()}</span>
@@ -521,20 +521,20 @@ export default function HomePage() {
           </div>
 
           {/* Revenue */}
-          <div className="rounded-2xl bg-surface border border-border p-4 shadow-xs">
+          <div className="rounded-2xl bg-surface border border-border p-4 shadow-card hover:border-primary/40 transition-colors">
             <div className="text-base sm:text-xl font-black font-mono text-text-primary">
-              <span className="text-[#e06653]">$</span>
+              <span className="text-primary font-bold">$</span>
               <span>{publicStats.revenue.toLocaleString()}</span>
             </div>
             <span className="text-[11px] text-text-muted font-medium mt-0.5 block">revenue</span>
           </div>
 
           {/* Products added */}
-          <div className="rounded-2xl bg-surface border border-border p-4 shadow-xs">
+          <div className="rounded-2xl bg-surface border border-border p-4 shadow-card hover:border-primary/40 transition-colors">
             <div className="text-base sm:text-xl font-black font-mono text-text-primary">
               <span>{publicStats.products.toLocaleString()}</span>
             </div>
-            <span className="text-[11px] text-text-muted font-medium mt-0.5 block">products added</span>
+            <span className="text-[11px] text-text-muted font-medium mt-0.5 block">products listed</span>
           </div>
         </div>
       </div>

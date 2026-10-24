@@ -13,6 +13,8 @@ import {
   Zap,
   ArrowRight,
   Sparkles,
+  MousePointerClick,
+  Trophy,
 } from 'lucide-react';
 
 interface RelatedProduct {
@@ -133,22 +135,22 @@ export function ProductDetailClient({
         <Link href="/" className="hover:text-text-primary transition-colors">
           Leaderboard
         </Link>
-        <span>-</span>
+        <span>/</span>
         <Link
           href={`/?category=${categorySlug}`}
-          className="hover:text-[#e06653] font-medium transition-colors"
+          className="hover:text-primary font-bold transition-colors"
         >
           {categoryName}
         </Link>
       </nav>
 
-      {/* 2. Main Product Hero Box (Matching Image 5) */}
-      <div className="rounded-3xl border-2 border-primary/30 dark:border-primary/20 bg-surface p-6 sm:p-8 space-y-5 shadow-xs">
+      {/* 2. Main Product Hero Box (LaunchProduct Design) */}
+      <div className="rounded-3xl border border-border bg-surface p-6 sm:p-8 space-y-5 shadow-card hover:border-primary/40 transition-colors">
         <div className="flex items-start gap-4 sm:gap-5">
           <img
             src={sanitizeImageUrl(logo)}
             alt={product.name}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-border shrink-0 bg-surface-sunken"
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-border shrink-0 bg-surface-sunken shadow-sm"
             onError={(e) => {
               (e.target as HTMLImageElement).src = fallbackLogo;
             }}
@@ -164,8 +166,8 @@ export function ProductDetailClient({
 
             {/* Meta Row */}
             <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-text-muted">
-              <span className="inline-flex items-center gap-1 font-semibold text-text-secondary">
-                <Bot className="w-3.5 h-3.5 text-text-muted" />
+              <span className="inline-flex items-center gap-1 font-semibold text-text-secondary px-2 py-0.5 rounded-md bg-surface-sunken border border-border">
+                <Bot className="w-3.5 h-3.5 text-primary" />
                 <span>{categoryName}</span>
               </span>
 
@@ -175,7 +177,7 @@ export function ProductDetailClient({
                 href={outboundUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-text-primary hover:underline transition-colors"
+                className="hover:text-primary hover:underline font-medium text-text-secondary transition-colors"
               >
                 {domain}
               </a>
@@ -186,8 +188,9 @@ export function ProductDetailClient({
 
               <span>·</span>
 
-              <span className="font-semibold text-text-secondary">
-                {resolvedStats.clicksCount.toLocaleString()} clicks
+              <span className="font-semibold text-text-secondary inline-flex items-center gap-1">
+                <MousePointerClick className="w-3 h-3 text-text-muted" />
+                <span>{resolvedStats.clicksCount.toLocaleString()} clicks</span>
               </span>
             </div>
           </div>
@@ -204,10 +207,10 @@ export function ProductDetailClient({
             href={outboundUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs sm:text-sm font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+            className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs sm:text-sm font-bold shadow-md shadow-primary/20 transition-all inline-flex items-center gap-1.5 cursor-pointer"
           >
-            <span>Visit</span>
-            <ChevronRight className="w-4 h-4" />
+            <span>Visit site</span>
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
 
           <button
@@ -217,7 +220,7 @@ export function ProductDetailClient({
             {copiedLink ? (
               <>
                 <Check className="w-4 h-4 text-emerald-500" />
-                <span className="text-emerald-600 dark:text-emerald-400">Copied!</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">Copied!</span>
               </>
             ) : (
               <>
@@ -232,11 +235,11 @@ export function ProductDetailClient({
       {/* 3. Dual Rank Stat Cards (Category Rank & Overall Rank) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Category Rank Card */}
-        <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6 space-y-2">
+        <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6 space-y-2 shadow-card hover:border-primary/40 transition-colors">
           <span className="text-[10px] font-black uppercase tracking-wider text-text-muted block">
             Category Rank
           </span>
-          <div className="text-3xl sm:text-4xl font-black font-mono text-text-primary tracking-tight">
+          <div className="text-3xl sm:text-4xl font-black font-mono text-primary tracking-tight">
             #{resolvedStats.categoryRank}
           </div>
           <p className="text-xs text-text-muted">
@@ -244,16 +247,16 @@ export function ProductDetailClient({
           </p>
           <Link
             href={`/?category=${categorySlug}`}
-            className="text-xs font-bold text-[#e06653] hover:underline inline-block pt-1"
+            className="text-xs font-bold text-primary hover:text-primary-hover hover:underline inline-block pt-1"
           >
-            See category ranking
+            See category ranking &rarr;
           </Link>
         </div>
 
         {/* Overall Rank Card */}
-        <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6 space-y-2">
+        <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6 space-y-2 shadow-card hover:border-primary/40 transition-colors">
           <span className="text-[10px] font-black uppercase tracking-wider text-text-muted block">
-            Overall
+            Overall Rank
           </span>
           <div className="text-3xl sm:text-4xl font-black font-mono text-text-primary tracking-tight">
             #{resolvedStats.overallRank}
@@ -263,16 +266,19 @@ export function ProductDetailClient({
           </p>
           <Link
             href="/?tab=all-time"
-            className="text-xs font-bold text-[#e06653] hover:underline inline-block pt-1"
+            className="text-xs font-bold text-primary hover:text-primary-hover hover:underline inline-block pt-1"
           >
-            See overall ranking
+            See overall ranking &rarr;
           </Link>
         </div>
       </div>
 
       {/* 4. "About this ranking" Commercial Transparency Section */}
-      <div className="rounded-2xl border border-border bg-surface p-6 sm:p-7 space-y-5">
-        <h2 className="text-lg font-black text-text-primary">About this ranking</h2>
+      <div className="rounded-2xl border border-border bg-surface p-6 sm:p-7 space-y-5 shadow-card">
+        <div className="flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-primary" />
+          <h2 className="text-lg font-black text-text-primary">About this ranking</h2>
+        </div>
 
         <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
           The listing has been raised {resolvedStats.raisedCount} times, most recently last month.{' '}
@@ -308,13 +314,13 @@ export function ProductDetailClient({
         </div>
 
         {/* Q&A 3 with Outbid Button */}
-        <div className="space-y-2 pt-1 border-t border-border">
+        <div className="space-y-2 pt-3 border-t border-border">
           <h3 className="text-xs sm:text-sm font-bold text-text-primary">
             How do I outrank {product.name}?
           </h3>
           <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
             Anyone can take this rank for{' '}
-            <span className="font-bold font-mono text-[#e06653]">
+            <span className="font-bold font-mono text-primary">
               ${resolvedStats.outbidCostToBeatCategoryTop.toLocaleString()}
             </span>{' '}
             on the {categoryName} board.
@@ -322,7 +328,7 @@ export function ProductDetailClient({
 
           <button
             onClick={() => setIsOutbidModalOpen(true)}
-            className="mt-1 px-4 py-2 rounded-xl bg-[#e06653] hover:bg-[#cf5542] text-white text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+            className="mt-1 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-md shadow-primary/20 transition-all inline-flex items-center gap-1.5 cursor-pointer"
           >
             <Zap className="w-3.5 h-3.5" />
             <span>
@@ -342,9 +348,10 @@ export function ProductDetailClient({
             </h2>
             <Link
               href={`/?category=${categorySlug}`}
-              className="text-xs font-bold text-[#e06653] hover:underline"
+              className="text-xs font-bold text-primary hover:text-primary-hover hover:underline flex items-center gap-0.5"
             >
-              See all
+              <span>See all</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -361,7 +368,7 @@ export function ProductDetailClient({
               return (
                 <div
                   key={p.id || p._id || p.slug}
-                  className="rounded-xl border border-border bg-surface p-3.5 flex items-center justify-between gap-3 hover:border-border transition-colors"
+                  className="rounded-xl border border-border bg-surface p-3.5 flex items-center justify-between gap-3 hover:border-primary/40 transition-colors shadow-xs"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="font-mono text-xs font-bold text-text-muted shrink-0 w-6">
@@ -375,17 +382,17 @@ export function ProductDetailClient({
                     <div className="min-w-0">
                       <Link
                         href={`/products/${p.slug}`}
-                        className="font-bold text-xs sm:text-sm text-text-primary hover:text-[#e06653] transition-colors truncate block"
+                        className="font-bold text-xs sm:text-sm text-text-primary hover:text-primary transition-colors truncate block"
                       >
                         {p.name}
                         {p.tagline && (
-                          <span className="font-normal text-text-muted"> | {p.tagline}</span>
+                          <span className="font-normal text-text-muted"> · {p.tagline}</span>
                         )}
                       </Link>
                     </div>
                   </div>
 
-                  <span className="font-mono text-xs sm:text-sm font-black text-[#e06653] shrink-0">
+                  <span className="font-mono text-xs sm:text-sm font-black text-primary shrink-0">
                     {relAmount}
                   </span>
                 </div>

@@ -16,6 +16,8 @@ import {
   X,
   CreditCard,
   AlertCircle,
+  TrendingUp,
+  Layers,
 } from 'lucide-react';
 
 interface CategoryOption {
@@ -123,7 +125,7 @@ export function ClaimRankHero({
         websiteUrl: `https://${clean}`,
         name: fallbackName,
         tagline: `The modern platform for ${clean}`,
-        description: `${fallbackName} is an innovative product designed to empower creators and teams.`,
+        description: `${fallbackName} offers fast, reliable tools for developers and modern builders.`,
         logoUrl: `https://www.google.com/s2/favicons?domain=${clean}&sz=128`,
         categoryId: selectedCategory || '',
         categoryName: 'AI Tools',
@@ -146,7 +148,7 @@ export function ClaimRankHero({
     }
   }, [categoriesList, selectedCategory]);
 
-  // Handle URL input changes with 400ms debounce
+  // Handle URL input changes with debounce
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setUrlInput(val);
@@ -161,11 +163,11 @@ export function ClaimRankHero({
 
     debounceTimer.current = setTimeout(() => {
       performPreview(val);
-    }, 450);
+    }, 400);
   };
 
   const handleAmountStep = (delta: number) => {
-    const minAmount = activeBoard === 'today' ? 10 : 10;
+    const minAmount = 10;
     setAmountDollars((prev) => Math.max(minAmount, prev + delta));
   };
 
@@ -237,32 +239,32 @@ export function ClaimRankHero({
 
   return (
     <div className="w-full text-center py-6 sm:py-8 space-y-4 max-w-4xl mx-auto">
-      {/* 1. Header with Amount Stepper */}
-      <div className="space-y-1.5">
+      {/* 1. Header with Amount Stepper (LaunchProduct Orange Brand Theme) */}
+      <div className="space-y-2">
         <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
           <span className="text-2xl sm:text-4xl font-extrabold text-text-primary tracking-tight">
             {activeBoard === 'today' ? "Claim today's #1 for" : 'Claim #1 for'}
           </span>
 
-          {/* Stepper Pill */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface border border-border shadow-xs">
+          {/* Stepper Pill in Brand Orange Theme */}
+          <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-surface border border-border shadow-sm hover:border-primary/40 transition-colors">
             <button
               type="button"
               onClick={() => handleAmountStep(activeBoard === 'today' ? -5 : -50)}
-              className="w-6 h-6 rounded-full bg-surface-sunken hover:bg-border text-text-secondary hover:text-text-primary flex items-center justify-center text-xs font-bold transition-colors"
+              className="w-7 h-7 rounded-full bg-surface-sunken hover:bg-primary hover:text-white text-text-secondary flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
               aria-label="Decrease amount"
             >
               <Minus className="w-3.5 h-3.5" />
             </button>
 
-            <span className="text-2xl sm:text-4xl font-black text-[#f87171] dark:text-[#ff7b72] font-mono tracking-tight">
+            <span className="text-2xl sm:text-4xl font-black text-primary font-mono tracking-tight">
               ${amountDollars.toLocaleString()}
             </span>
 
             <button
               type="button"
               onClick={() => handleAmountStep(activeBoard === 'today' ? 5 : 50)}
-              className="w-6 h-6 rounded-full bg-surface-sunken hover:bg-border text-text-secondary hover:text-text-primary flex items-center justify-center text-xs font-bold transition-colors"
+              className="w-7 h-7 rounded-full bg-surface-sunken hover:bg-primary hover:text-white text-text-secondary flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
               aria-label="Increase amount"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -273,24 +275,25 @@ export function ClaimRankHero({
         {/* Subtitle / UTC countdown */}
         {activeBoard === 'today' && utcCountdown && (
           <p className="text-xs sm:text-sm text-text-muted">
-            Resets every day at midnight UTC · <span className="font-mono font-semibold text-text-secondary">{utcCountdown} left</span>
+            Resets every day at midnight UTC ·{' '}
+            <span className="font-mono font-bold text-primary">{utcCountdown} left</span>
           </p>
         )}
       </div>
 
       {/* 2. Instant Input Form Bar */}
       <div className="pt-2">
-        <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-stretch gap-2.5 p-1.5 rounded-2xl bg-surface border-2 border-border focus-within:border-[#f87171] shadow-sm transition-all duration-200">
+        <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-stretch gap-2 p-1.5 rounded-2xl bg-surface border border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 shadow-md transition-all duration-200">
           {/* Left: Product URL input with auto favicon badge */}
-          <div className="relative flex-1 flex items-center min-w-0 px-3">
+          <div className="relative flex-1 flex items-center min-w-0 px-3 py-1">
             <div className="w-6 h-6 shrink-0 flex items-center justify-center mr-2.5">
               {isLoadingPreview ? (
-                <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
+                <Loader2 className="w-4 h-4 text-primary animate-spin" />
               ) : previewData?.logoUrl ? (
                 <img
                   src={sanitizeImageUrl(previewData.logoUrl)}
                   alt="Favicon"
-                  className="w-5 h-5 rounded-md object-cover border border-border"
+                  className="w-5 h-5 rounded-md object-cover border border-border shadow-xs"
                 />
               ) : (
                 <Globe className="w-4 h-4 text-text-muted" />
@@ -307,7 +310,7 @@ export function ClaimRankHero({
           </div>
 
           {/* Middle: Category selector */}
-          <div className="sm:border-l sm:border-border sm:pl-2.5 flex items-center">
+          <div className="sm:border-l sm:border-border sm:pl-2 flex items-center">
             <div className="relative w-full sm:w-44">
               <select
                 value={selectedCategory}
@@ -338,20 +341,21 @@ export function ClaimRankHero({
             </div>
           </div>
 
-          {/* Right: Claim rank button */}
+          {/* Right: Claim rank button (Brand Orange) */}
           <button
             type="button"
             onClick={handleClaimClick}
             disabled={!urlInput.trim()}
-            className="px-6 py-2.5 sm:py-2 rounded-xl bg-[#e06653] hover:bg-[#cf5542] disabled:opacity-50 disabled:hover:bg-[#e06653] text-white text-sm font-bold shadow-xs transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+            className="px-6 py-2.5 sm:py-2 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:hover:bg-primary text-white text-sm font-bold shadow-md shadow-primary/20 transition-all shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <span>Claim rank</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
         {/* 3. Dynamic Placement Recommendation (Appears when valid URL is typed) */}
         {previewData && (
-          <div className="pt-2 text-xs sm:text-sm text-text-secondary space-y-1 animate-fadeIn">
+          <div className="pt-3 text-xs sm:text-sm text-text-secondary space-y-1 animate-fadeIn">
             <p>
               Places you{' '}
               <span className="font-bold text-text-primary font-mono">
@@ -368,7 +372,7 @@ export function ClaimRankHero({
               <button
                 type="button"
                 onClick={handleCategoryShortcutClick}
-                className="text-[#e06653] hover:underline font-bold cursor-pointer inline-flex items-center gap-1"
+                className="text-primary hover:text-primary-hover hover:underline font-bold cursor-pointer inline-flex items-center gap-1.5"
               >
                 <span>
                   Claim #1 in your category for ${previewData.categoryOutbidCostDollars}
@@ -383,17 +387,17 @@ export function ClaimRankHero({
       {/* 4. Sleek Accountless Checkout Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-surface border border-border rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl relative space-y-5 text-left">
+          <div className="bg-surface border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl relative space-y-5 text-left">
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 p-1 rounded-lg text-text-muted hover:text-text-primary bg-surface-sunken hover:bg-border transition-colors"
+              className="absolute top-4 right-4 p-1 rounded-lg text-text-muted hover:text-text-primary bg-surface-sunken hover:bg-border transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
             {/* Modal Header */}
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e06653]/15 text-[#e06653] border border-[#e06653]/20 mb-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20 mb-2">
                 <Zap className="w-3.5 h-3.5" />
                 <span>Account-Free Instant Rank Claim</span>
               </div>
@@ -401,7 +405,7 @@ export function ClaimRankHero({
                 Confirm Rank Placement
               </h3>
               <p className="text-xs text-text-secondary mt-0.5">
-                No sign up required. Pay to instantly lock in your position.
+                No sign up required. Pay to instantly lock in your position on LaunchProduct.
               </p>
             </div>
 
@@ -411,7 +415,7 @@ export function ClaimRankHero({
                 <img
                   src={sanitizeImageUrl(previewData.logoUrl)}
                   alt="Logo"
-                  className="w-11 h-11 rounded-xl object-cover border border-border shrink-0"
+                  className="w-11 h-11 rounded-xl object-cover border border-border shrink-0 shadow-xs"
                 />
               ) : (
                 <div className="w-11 h-11 rounded-xl bg-surface border border-border flex items-center justify-center shrink-0">
@@ -425,7 +429,7 @@ export function ClaimRankHero({
                 <p className="text-xs text-text-muted truncate">
                   {urlInput.startsWith('http') ? urlInput : `https://${urlInput}`}
                 </p>
-                <span className="text-[10px] font-semibold text-text-secondary mt-0.5 block">
+                <span className="text-[10px] font-semibold text-primary mt-0.5 block">
                   Category: {previewData?.categoryName || 'General'}
                 </span>
               </div>
@@ -439,7 +443,7 @@ export function ClaimRankHero({
                   {activeBoard === 'today' ? "Today's Leaderboard" : 'All-Time Board'}
                 </span>
               </div>
-              <span className="text-2xl font-black font-mono text-[#e06653]">
+              <span className="text-2xl font-black font-mono text-primary">
                 ${amountDollars.toLocaleString()}
               </span>
             </div>
@@ -455,7 +459,7 @@ export function ClaimRankHero({
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
                   placeholder="founder@yourcompany.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-surface text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#e06653]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-surface text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -469,7 +473,7 @@ export function ClaimRankHero({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3 rounded-xl bg-[#e06653] hover:bg-[#cf5542] text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-sm shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>

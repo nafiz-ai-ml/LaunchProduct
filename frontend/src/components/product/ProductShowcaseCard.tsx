@@ -2,16 +2,16 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { sanitizeImageUrl, sanitizeUrl } from '@/lib/safe-url';
+import { sanitizeImageUrl } from '@/lib/safe-url';
 import {
   ExternalLink,
   ChevronRight,
   Bot,
-  Layers,
-  Sparkles,
   MousePointerClick,
-  Code,
-  Flame,
+  Sparkles,
+  Trophy,
+  Medal,
+  Award,
 } from 'lucide-react';
 
 export interface ProductShowcaseCardProps {
@@ -80,15 +80,15 @@ export function ProductShowcaseCard({
   // Compact layout (used in the 30% sidebar)
   if (isCompact) {
     return (
-      <div className="group rounded-xl p-2.5 sm:p-3 bg-surface hover:bg-surface-sunken/60 border border-border/70 hover:border-border transition-all flex items-center justify-between gap-3">
+      <div className="group rounded-xl p-2.5 sm:p-3 bg-surface hover:bg-surface-sunken border border-border hover:border-primary/40 transition-all flex items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="font-mono text-xs font-bold text-text-muted shrink-0 w-5">
+          <span className="font-mono text-xs font-bold text-text-muted shrink-0 w-6">
             #{rank}
           </span>
           <img
             src={sanitizeImageUrl(logoUrl || fallbackLogo)}
             alt={name}
-            className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
+            className="w-8 h-8 rounded-lg object-cover border border-border shrink-0 shadow-xs"
             onError={(e) => {
               (e.target as HTMLImageElement).src = fallbackLogo;
             }}
@@ -96,7 +96,7 @@ export function ProductShowcaseCard({
           <div className="min-w-0">
             <Link
               href={`/products/${slug}`}
-              className="font-bold text-xs text-text-primary hover:text-[#e06653] transition-colors truncate block"
+              className="font-bold text-xs text-text-primary hover:text-primary transition-colors truncate block"
             >
               {name}
             </Link>
@@ -104,19 +104,35 @@ export function ProductShowcaseCard({
           </div>
         </div>
 
-        <span className="font-mono text-xs font-bold text-[#e06653] shrink-0">
+        <span className="font-mono text-xs font-bold text-primary shrink-0">
           {displayDollars}
         </span>
       </div>
     );
   }
 
-  // Full Outbid-style main card
+  // Full LaunchProduct-style main card
   return (
-    <div className="group rounded-2xl bg-[#fffaf8] dark:bg-[#1a1412] hover:bg-[#fff5f0] dark:hover:bg-[#221a17] border border-[#f3e5df] dark:border-[#382620] hover:border-[#e8c8bd] dark:hover:border-[#52372e] p-4 sm:p-5 transition-all duration-200 flex items-start gap-3.5 sm:gap-4 shadow-xs">
+    <div className="group rounded-2xl bg-surface hover:bg-surface-elevated border border-border hover:border-primary/50 hover:shadow-hover hover:-translate-y-0.5 p-4 sm:p-5 transition-all duration-200 flex items-start gap-3.5 sm:gap-4 shadow-card">
       {/* 1. Left Rank Number */}
-      <div className="flex items-center justify-center pt-1 font-mono text-base sm:text-lg font-black text-[#e06653] shrink-0 w-7 sm:w-8 text-center select-none">
-        #{rank}
+      <div className="shrink-0 flex items-center justify-center pt-1 w-8 sm:w-9 text-center">
+        {rank === 1 ? (
+          <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-xs sm:text-sm font-black flex items-center justify-center shadow-xs">
+            #1
+          </span>
+        ) : rank === 2 ? (
+          <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-500/15 border border-slate-500/30 text-slate-600 dark:text-slate-300 font-mono text-xs sm:text-sm font-black flex items-center justify-center shadow-xs">
+            #2
+          </span>
+        ) : rank === 3 ? (
+          <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-700/15 border border-amber-700/30 text-amber-700 dark:text-amber-500 font-mono text-xs sm:text-sm font-black flex items-center justify-center shadow-xs">
+            #3
+          </span>
+        ) : (
+          <span className="font-mono text-xs sm:text-sm font-bold text-text-muted">
+            #{rank}
+          </span>
+        )}
       </div>
 
       {/* 2. Logo */}
@@ -124,7 +140,7 @@ export function ProductShowcaseCard({
         href={outboundClickUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden border border-[#f0d8cf] dark:border-[#422c24] bg-white dark:bg-black/40 hover:opacity-90 transition-opacity"
+        className="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden border border-border bg-surface-sunken hover:opacity-90 transition-opacity shadow-xs"
       >
         <img
           src={sanitizeImageUrl(logoUrl || fallbackLogo)}
@@ -145,15 +161,15 @@ export function ProductShowcaseCard({
               href={outboundClickUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-base sm:text-lg font-extrabold text-text-primary hover:text-[#e06653] transition-colors tracking-tight truncate inline-block"
+              className="text-base sm:text-lg font-extrabold text-text-primary hover:text-primary transition-colors tracking-tight truncate inline-block"
             >
               <span className="hover:underline">{name}</span>
-              {tagline && <span className="font-medium text-text-muted"> · {tagline}</span>}
+              {tagline && <span className="font-medium text-text-secondary"> · {tagline}</span>}
             </a>
           </div>
 
-          {/* Right Spend Amount (Coral Accent) */}
-          <span className="font-mono text-base sm:text-lg font-black text-[#e06653] shrink-0">
+          {/* Right Spend Amount (Brand Orange Accent) */}
+          <span className="font-mono text-base sm:text-lg font-black text-primary shrink-0">
             {displayDollars}
           </span>
         </div>
@@ -164,10 +180,10 @@ export function ProductShowcaseCard({
         </p>
 
         {/* Metadata Bottom Row: [icon] Category · relative date · domain · XX clicks · see details */}
-        <div className="pt-1.5 flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-text-muted">
+        <div className="pt-2 flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-text-muted">
           {/* Category Chip */}
-          <span className="inline-flex items-center gap-1 font-semibold text-text-secondary">
-            <Bot className="w-3.5 h-3.5 text-text-muted" />
+          <span className="inline-flex items-center gap-1 font-semibold text-text-secondary px-2 py-0.5 rounded-md bg-surface-sunken border border-border/80">
+            <Bot className="w-3.5 h-3.5 text-primary" />
             <span>{categoryName}</span>
           </span>
 
@@ -183,7 +199,7 @@ export function ProductShowcaseCard({
             href={outboundClickUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-text-muted hover:text-text-primary hover:underline transition-colors"
+            className="font-medium text-text-secondary hover:text-primary hover:underline transition-colors"
           >
             {domain}
           </a>
@@ -191,8 +207,9 @@ export function ProductShowcaseCard({
           <span>·</span>
 
           {/* Click Count */}
-          <span className="font-medium text-text-secondary">
-            {clickCount.toLocaleString()} clicks
+          <span className="font-semibold text-text-secondary inline-flex items-center gap-1">
+            <MousePointerClick className="w-3 h-3 text-text-muted" />
+            <span>{clickCount.toLocaleString()} clicks</span>
           </span>
 
           <span>·</span>
@@ -200,10 +217,10 @@ export function ProductShowcaseCard({
           {/* See Details link */}
           <Link
             href={`/products/${slug}`}
-            className="font-semibold text-text-muted hover:text-[#e06653] hover:underline transition-colors inline-flex items-center gap-0.5"
+            className="font-bold text-text-secondary hover:text-primary hover:underline transition-colors inline-flex items-center gap-0.5"
           >
             <span>see details</span>
-            <ChevronRight className="w-3 h-3" />
+            <ChevronRight className="w-3.5 h-3.5 text-primary" />
           </Link>
         </div>
       </div>
